@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>管线空间训练器</title>
+  <link rel="icon" href="icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">ISO</div>
+      <div>
+        <h1>管线空间训练器</h1>
+        <p>单线图 · 坐标 · 预制 · 现场模块</p>
+      </div>
+      <button id="landscapeBtn" class="orientation-btn" type="button" aria-pressed="false" title="切换手机横屏训练">↻ 横屏</button>
+    </div>
+    <nav class="top-tabs" aria-label="页面">
+      <button class="top-tab is-active" data-page="trainer">训练器</button>
+      <button class="top-tab" data-page="modules">专业模块</button>
+      <button class="top-tab" data-page="calc">放样计算</button>
+      <button class="top-tab" data-page="route">学习路线</button>
+      <button class="top-tab" data-page="glossary">速查表</button>
+      <button class="top-tab" data-page="profile">我的</button>
+    </nav>
+    <div class="axis-key" aria-label="坐标约定">
+      <span><b class="key-east"></b>E 东</span>
+      <span><b class="key-north"></b>N 北</span>
+      <span><b class="key-elev"></b>EL 高程</span>
+    </div>
+    <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="切换暗色模式" title="切换暗色模式">◐</button>
+  </header>
+
+  <main>
+    <section id="page-trainer" class="page is-active">
+      <div class="workspace">
+        <aside class="builder-panel" aria-label="管线参数">
+          <section class="panel-section presets-section">
+            <div class="section-heading">
+              <h2>练习管路</h2>
+              <button id="caseFavoriteBtn" class="icon-btn case-favorite-btn" type="button" title="收藏当前案例" aria-label="收藏当前案例">☆</button>
+              <button id="resetBtn" class="icon-btn" type="button" title="恢复当前预设" aria-label="恢复当前预设">↺</button>
+            </div>
+            <div class="case-filter" role="group" aria-label="案例筛选">
+              <button class="case-filter-btn is-active" type="button" data-case-filter="all">全部</button>
+              <button class="case-filter-btn" type="button" data-case-filter="common">常用</button>
+              <button class="case-filter-btn" type="button" data-case-filter="special">特殊</button>
+              <button class="case-filter-btn" type="button" data-case-filter="favorite">收藏</button>
+            </div>
+            <div class="preset-grid" role="group" aria-label="预设管路">
+              <div class="preset-group-label">常用案例</div>
+              <button class="preset-btn is-active" data-preset="rise" data-case-group="common">01 · 立管转向</button>
+              <button class="preset-btn" data-preset="offset" data-case-group="common">02 · 平面绕行</button>
+              <button class="preset-btn" data-preset="rolling" data-case-group="common">03 · 空间偏移</button>
+              <button class="preset-btn" data-preset="equipment" data-case-group="common">04 · 设备接管</button>
+              <button class="preset-btn" data-preset="classicZ" data-case-group="common">05 · 立体Z形偏移</button>
+              <button class="preset-btn" data-preset="advanced" data-case-group="common">06 · 改造闭合（教学）</button>
+              <div class="preset-group-label is-special">特殊案例</div>
+              <button class="preset-btn" data-preset="diag45" data-case-group="special">07 · 45°双偏移</button>
+              <button class="preset-btn" data-preset="overpass" data-case-group="special">08 · 翻越障碍</button>
+              <button class="preset-btn" data-preset="expansion" data-case-group="special">09 · Π形膨胀回路</button>
+              <button class="preset-btn" data-preset="slopeDrain" data-case-group="special">10 · 连续坡度排液</button>
+              <button class="preset-btn" data-preset="serpent" data-case-group="special">11 · 多平面蛇形管</button>
+              <button class="preset-btn" data-preset="doubleNozzle" data-case-group="special">12 · 设备双口跨接</button>
+            </div>
+            <p class="preset-note">三维训练器按管道中心线模拟；标准弯头的弯曲半径和管件扣除需在预制计算中另行核对。</p>
+          </section>
+
+          <section class="panel-section start-section">
+            <div class="section-heading">
+              <h2>起点与管径</h2>
+              <span class="unit-label">mm</span>
+            </div>
+            <div class="input-grid four-col">
+              <label>E<input id="startE" type="number" step="50" value="0"></label>
+              <label>N<input id="startN" type="number" step="50" value="0"></label>
+              <label>EL<input id="startZ" type="number" step="50" value="0"></label>
+              <label>DN<input id="pipeDn" type="number" min="15" max="1600" step="5" value="100"></label>
+            </div>
+          </section>
+
+          <section class="panel-section segments-section">
+            <div class="section-heading">
+              <h2>路径步骤</h2>
+              <button id="addSegmentBtn" class="command-btn" type="button" title="新增管段 (快捷键 N)" aria-label="新增管段 (快捷键 N)">＋ 新增段</button>
+            </div>
+            <div id="segmentList" class="segment-list"></div>
+          </section>
+
+          <section class="panel-section quiz-section">
+            <div class="section-heading">
+              <h2>坐标练习</h2>
+              <button id="randomBtn" class="command-btn" type="button" title="随机题 (快捷键 R)" aria-label="随机题 (快捷键 R)">随机题</button>
+            </div>
+            <div class="input-grid three-col">
+              <label>终点 E<input id="answerE" type="number" step="50"></label>
+              <label>终点 N<input id="answerN" type="number" step="50"></label>
+              <label>终点 EL<input id="answerZ" type="number" step="50"></label>
+            </div>
+            <div class="quiz-actions">
+              <button id="checkAnswerBtn" class="primary-btn" type="button">核对坐标</button>
+              <button id="revealBtn" class="secondary-btn" type="button">显示3D</button>
+            </div>
+            <p id="quizMessage" class="status-line" aria-live="polite"></p>
+          </section>
+        </aside>
+
+        <section class="scene-panel" aria-label="三维管路">
+          <div class="scene-toolbar">
+            <div class="segmented" role="group" aria-label="相机视角">
+              <button class="view-btn is-active" data-view="iso">ISO</button>
+              <button class="view-btn" data-view="top">顶</button>
+              <button class="view-btn" data-view="front">南</button>
+              <button class="view-btn" data-view="right">东</button>
+            </div>
+            <div class="scene-options">
+              <label><input id="shadowToggle" type="checkbox" checked> 参考面投影</label>
+              <label><input id="labelToggle" type="checkbox" checked> 坐标点</label>
+            </div>
+            <div class="landscape-panel-controls" aria-label="横屏面板">
+              <button id="toggleDataPanelBtn" class="panel-toggle is-active" type="button" aria-pressed="true">数据</button>
+              <button id="toggleDrawingPanelBtn" class="panel-toggle is-active" type="button" aria-pressed="true">单线</button>
+            </div>
+          </div>
+          <div id="threeViewport" class="three-viewport">
+            <div id="coordLabels" class="coord-labels" aria-hidden="true"></div>
+            <div id="quizCover" class="quiz-cover" hidden>
+              <strong>3D答案已隐藏</strong>
+              <span>先从单线图推算终点坐标</span>
+            </div>
+            <div class="compass" aria-hidden="true">
+              <span class="north-arrow">N</span>
+              <span>E</span>
+            </div>
+          </div>
+          <div class="scene-footer">
+            <button id="prevStepBtn" class="icon-btn" type="button" title="上一段 (快捷键 ←)" aria-label="上一段 (快捷键 ←)">←</button>
+            <div class="step-readout">
+              <span id="selectedStepLabel">第 1 段</span>
+              <strong id="selectedStepValue">向东 1,200 mm</strong>
+            </div>
+            <button id="nextStepBtn" class="icon-btn" type="button" title="下一段 (快捷键 →)" aria-label="下一段 (快捷键 →)">→</button>
+            <button id="fitViewBtn" class="secondary-btn" type="button" title="适配视图 (快捷键 F)" aria-label="适配视图 (快捷键 F)">适配视图</button>
+          </div>
+        </section>
+
+        <aside class="drawing-panel" aria-label="单线图">
+          <section class="drawing-section">
+            <div class="section-heading">
+              <div>
+                <h2>单线图</h2>
+                <p>等轴投影，虚线为最低标高参考面投影</p>
+              </div>
+              <span class="view-badge">ISO</span>
+            </div>
+            <svg id="isoSvg" class="iso-svg" role="img" aria-label="管路单线图" viewBox="0 0 420 390"></svg>
+          </section>
+          <section class="coordinate-section">
+            <div class="coord-summary">
+              <div><span>起点</span><strong id="startCoordText">E 0 · N 0 · EL 0</strong></div>
+              <div><span>终点</span><strong id="endCoordText">E 0 · N 0 · EL 0</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table class="coord-table">
+                <thead><tr><th>点</th><th>E</th><th>N</th><th>EL</th></tr></thead>
+                <tbody id="coordTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-modules" class="page modules-page" hidden>
+      <header class="content-header module-page-header">
+        <div>
+          <h2>管工现场训练模块</h2>
+          <p>按工程类型学习识图、材料、安装、检验和现场判断。</p>
+        </div>
+        <div class="module-progress-summary">
+          <span>模块进度</span>
+          <strong id="moduleProgressText">0 / 20</strong>
+        </div>
+      </header>
+
+      <div class="module-progress-track" role="progressbar" aria-label="专业模块学习进度" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0">
+        <div id="moduleProgressBar"></div>
+      </div>
+
+      <p class="standard-note">现场数值、允许偏差和操作方法必须以项目图纸、施工方案、WPS、ITP及当班安全交底为准。</p>
+
+      <div class="module-shell">
+        <aside class="module-track-panel" aria-label="专业分类">
+          <h3>专业分类</h3>
+          <div id="moduleTrackList" class="module-track-list"></div>
+        </aside>
+
+        <div class="module-content">
+          <header class="module-heading">
+            <div>
+              <span id="moduleTrackCode" class="module-code">OIL</span>
+              <h2 id="moduleTrackTitle">石油管线</h2>
+            </div>
+            <p id="moduleTrackSummary"></p>
+          </header>
+
+          <section class="module-workflow" aria-labelledby="workflowTitle">
+            <div class="section-heading">
+              <h3 id="workflowTitle">现场工作链</h3>
+              <span>从图纸到交接</span>
+            </div>
+            <div id="moduleWorkflow" class="workflow-strip"></div>
+          </section>
+
+          <div class="module-study-layout">
+            <aside class="module-lesson-panel">
+              <h3>课程</h3>
+              <div id="moduleLessonList" class="module-lesson-list"></div>
+            </aside>
+
+            <article class="module-lesson-detail">
+              <header>
+                <span id="moduleLessonStage" class="lesson-stage"></span>
+                <h3 id="moduleLessonTitle"></h3>
+                <p id="moduleLessonFocus"></p>
+              </header>
+              <div class="lesson-detail-grid">
+                <section>
+                  <h4>必须掌握</h4>
+                  <ol id="moduleLessonSteps" class="lesson-steps"></ol>
+                </section>
+                <section>
+                  <h4>现场检查点</h4>
+                  <ul id="moduleLessonChecks" class="lesson-checks"></ul>
+                </section>
+              </div>
+              <button id="moduleCompleteBtn" class="primary-btn lesson-complete-btn" type="button">标记本课已掌握</button>
+            </article>
+          </div>
+
+          <section class="site-scenario" aria-labelledby="scenarioTitle">
+            <div class="scenario-heading">
+              <div>
+                <span>现场判断题</span>
+                <h3 id="scenarioTitle">遇到这种情况怎么办？</h3>
+              </div>
+              <strong id="scenarioCounter">1 / 3</strong>
+            </div>
+            <p id="scenarioQuestion" class="scenario-question"></p>
+            <div id="scenarioChoices" class="scenario-choices"></div>
+            <p id="scenarioFeedback" class="scenario-feedback" aria-live="polite"></p>
+            <button id="scenarioNextBtn" class="secondary-btn" type="button" hidden>下一题</button>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-calc" class="page calculator-page" hidden>
+      <header class="content-header">
+        <h2>管工工程计算</h2>
+        <p>从中心线几何开始，逐步计算偏移、弯头扣除、闭合管段、展开与改造尺寸。</p>
+      </header>
+
+      <p class="standard-note calc-warning">仅用于几何学习与现场复核思路。承压管道的弯头、支管和改造方案必须由项目设计、检验及批准程序确认，实际切割还要考虑壁厚、坡口、焊口间隙、切缝和加工余量。</p>
+
+      <nav class="calc-tabs" aria-label="计算类型">
+        <button class="calc-tab is-active" type="button" data-calc-mode="angle">空间角度</button>
+        <button class="calc-tab" type="button" data-calc-mode="return">来回弯</button>
+        <button class="calc-tab" type="button" data-calc-mode="elbow">弯头下料</button>
+        <button class="calc-tab" type="button" data-calc-mode="closure">死口/活口</button>
+        <button class="calc-tab" type="button" data-calc-mode="miter">斜接弯头</button>
+        <button class="calc-tab" type="button" data-calc-mode="saddle">马鞍口</button>
+        <button class="calc-tab" type="button" data-calc-mode="compare">改造对比</button>
+      </nav>
+
+      <section id="calc-angle" class="calc-panel is-active">
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">ROLLING OFFSET</span>
+            <h3>空间偏移与角度</h3>
+            <p>输入终点相对起点的三个坐标差，计算平面偏移、真实管长、平面方向角和坡度角。</p>
+            <div class="calc-input-grid">
+              <label>ΔE 东西差 mm<input id="calcDeltaE" type="number" value="1200" step="10"></label>
+              <label>ΔN 南北差 mm<input id="calcDeltaN" type="number" value="900" step="10"></label>
+              <label>ΔEL 高差 mm<input id="calcDeltaZ" type="number" value="600" step="10"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>平面偏移</dt><dd id="anglePlanResult">-</dd></div>
+              <div><dt>空间真长</dt><dd id="angleTrueResult">-</dd></div>
+              <div><dt>平面方向角</dt><dd id="angleBearingResult">-</dd></div>
+              <div><dt>坡度角 / 坡度</dt><dd id="angleSlopeResult">-</dd></div>
+            </dl>
+            <div class="offset-quick">
+              <h4>两弯头单平面偏移</h4>
+              <div class="calc-input-grid two-col">
+                <label>垂直偏移量 mm<input id="quickOffset" type="number" min="0" value="500" step="10"></label>
+                <label>偏移角 °<input id="quickOffsetAngle" type="number" min="1" max="89" value="45" step="0.5"></label>
+              </div>
+              <p>斜管长 <strong id="quickTravelResult">-</strong> · 水平占用 <strong id="quickRunResult">-</strong></p>
+            </div>
+            <details class="calc-help">
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <h4>适用</h4><p>两个坐标点之间的空间直管、滚动偏移及坡度复核。</p>
+                <h4>计算顺序</h4><ol><li>先用 ΔE、ΔN 求平面偏移。</li><li>再把平面偏移与 ΔEL 组成直角三角形，求空间真长。</li><li>方向角从 E+ 轴转向 N+ 轴计量；坡度角由高差与平面偏移计算。</li></ol>
+                <p class="calc-formula">平面偏移 = √(ΔE² + ΔN²)<br>空间真长 = √(ΔE² + ΔN² + ΔEL²)</p>
+                <p class="calc-caution">图纸斜线不一定是斜管，必须同时看到坐标、高差或角度依据。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="angleDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="空间偏移平面图和立面图"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-return" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">RETURN / S OFFSET</span>
+            <h3>来回弯与S形偏移</h3>
+            <p>用两个同角度弯头把管线平行偏移，计算中心线斜长、水平占用和两弯头之间的直管参考长度。</p>
+            <div class="calc-input-grid">
+              <label>偏心距 mm<input id="returnOffset" type="number" min="0" value="600" step="10"></label>
+              <label>每只弯头角度 °<input id="returnAngle" type="number" min="1" max="89" value="45" step="0.5"></label>
+              <label>弯头中心半径 R mm<input id="returnRadius" type="number" min="0" value="150" step="5"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>两理论交点间斜长</dt><dd id="returnTravelResult">-</dd></div>
+              <div><dt>水平方向占用</dt><dd id="returnRunResult">-</dd></div>
+              <div><dt>单只弯头切线长</dt><dd id="returnTangentResult">-</dd></div>
+              <div><dt>中间直管参考长度</dt><dd id="returnStraightResult">-</dd></div>
+            </dl>
+            <p id="returnError" class="calc-error" role="alert"></p>
+            <details class="calc-help" open>
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <h4>偏心距</h4><p>两条平行管道中心线之间的垂直距离，不是两根管外壁的净距。</p>
+                <h4>计算步骤</h4><ol><li>用偏心距和弯头角度求斜管中心线长度。</li><li>用弯头中心半径求每只弯头的切线占用。</li><li>斜长减去两端切线长，得到中间直管参考长度。</li></ol>
+                <p class="calc-formula">斜长 = 偏心距 ÷ sinθ<br>水平占用 = 偏心距 ÷ tanθ<br>切线长 = R × tan(θ÷2)<br>中间直管 = 斜长 - 2×切线长</p>
+                <p class="calc-caution">R必须取实际管件中心半径；直管下料还要考虑坡口、焊口间隙和实物尺寸。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="returnDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="来回弯S形偏移尺寸示意"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-elbow" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">ELBOW TAKEOUT</span>
+            <h3>弯头中心距与下料扣除</h3>
+            <p>根据DN、弯曲半径类型和转角，计算中心半径、切线长、中心弧长与弦长。</p>
+            <div class="calc-input-grid">
+              <label>DN mm<input id="elbowDn" type="number" min="1" value="100" step="5"></label>
+              <label>半径类型<select id="elbowRadiusType"><option value="1.5">长半径 1.5D</option><option value="1">短半径 1.0D</option><option value="custom">自定义R</option></select></label>
+              <label>弯头角度 °<input id="elbowAngle" type="number" min="1" max="179" value="90" step="0.5"></label>
+              <label>自定义中心半径R mm<input id="elbowCustomRadius" type="number" min="1" value="150" step="5" disabled></label>
+              <label>两理论交点距离 mm<input id="elbowCenterDistance" type="number" min="0" value="1000" step="10"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>采用中心半径</dt><dd id="elbowRadiusResult">-</dd></div>
+              <div><dt>单端切线长</dt><dd id="elbowTangentResult">-</dd></div>
+              <div><dt>中心线弧长</dt><dd id="elbowArcResult">-</dd></div>
+              <div><dt>弦长</dt><dd id="elbowChordResult">-</dd></div>
+              <div><dt>两同角弯头间直管参考</dt><dd id="elbowStraightResult">-</dd></div>
+            </dl>
+            <p id="elbowError" class="calc-error" role="alert"></p>
+            <details class="calc-help">
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <h4>中心半径R</h4><p>从弯头圆心到管道中心线的距离。1.5D与1.0D这里只作教学换算，实际成品尺寸必须查管件标准或实测。</p>
+                <p class="calc-formula">切线长 = R × tan(θ÷2)<br>中心弧长 = π × R × θ ÷ 180<br>弦长 = 2 × R × sin(θ÷2)</p>
+                <p class="calc-caution">“两理论交点距离”只有在两个相同角度、相向布置的弯头中才能直接用于扣除计算。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="elbowDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="弯头中心半径切线长与弧长示意"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-closure" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">CLOSURE SPOOL</span>
+            <h3>死口与活口闭合管段</h3>
+            <p>以两个接口中心的坐标差为基础，扣除两端管件占用和焊口间隙，计算闭合直管的理论长度。</p>
+            <div class="calc-input-grid two-col">
+              <label>接口类型<select id="closureMode"><option value="dead">死口：两端固定</option><option value="live">活口：一端可调</option></select></label>
+              <label>ΔE mm<input id="closureDeltaE" type="number" value="1800" step="10"></label>
+              <label>ΔN mm<input id="closureDeltaN" type="number" value="300" step="10"></label>
+              <label>ΔEL mm<input id="closureDeltaZ" type="number" value="200" step="10"></label>
+              <label>A端中心至焊口 mm<input id="closureTakeoutA" type="number" min="0" value="150" step="1"></label>
+              <label>B端中心至焊口 mm<input id="closureTakeoutB" type="number" min="0" value="150" step="1"></label>
+              <label>两端焊口间隙合计 mm<input id="closureGap" type="number" min="0" value="6" step="0.5"></label>
+              <label>活口预留修切量 mm<input id="closureTrim" type="number" min="0" value="20" step="1" disabled></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>接口中心真距</dt><dd id="closureDistanceResult">-</dd></div>
+              <div><dt>平面方向 / 坡度角</dt><dd id="closureAnglesResult">-</dd></div>
+              <div><dt>理论净下料长度</dt><dd id="closureNetResult">-</dd></div>
+              <div><dt>建议毛坯参考长度</dt><dd id="closureBlankResult">-</dd></div>
+            </dl>
+            <p id="closureError" class="calc-error" role="alert"></p>
+            <details class="calc-help" open>
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <h4>本工具的定义</h4><p>死口表示两端都不能移动，尺寸必须按最终实测闭合；活口表示至少一端允许按批准方法调整，因此可预留少量现场修切量。</p>
+                <h4>计算步骤</h4><ol><li>用三个坐标差计算接口中心真距。</li><li>扣除A、B两端从接口中心到焊口端面的占用。</li><li>再扣除WPS规定的焊口间隙合计。</li><li>活口毛坯在理论长度上增加预留修切量。</li></ol>
+                <p class="calc-formula">净下料 = 中心真距 - A端占用 - B端占用 - 间隙合计</p>
+                <p class="calc-caution">死口不得用倒链或加热强拉设备口；实际下料必须在隔离、支撑和最终接口复测完成后进行。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="closureDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="固定口与可调口闭合管段尺寸示意"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-miter" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">MITER BEND</span>
+            <h3>等角斜接弯头</h3>
+            <p>把总转角平均分配到各接缝，计算每个接缝的转角、单侧切割角和理论退切量。</p>
+            <div class="calc-input-grid">
+              <label>总转角 °<input id="miterTotalAngle" type="number" min="1" max="180" value="90" step="1"></label>
+              <label>组成管节数<input id="miterPieceCount" type="number" min="2" max="8" value="3" step="1"></label>
+              <label>管子外径 mm<input id="miterDiameter" type="number" min="1" value="219" step="1"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>接缝数量</dt><dd id="miterJointResult">-</dd></div>
+              <div><dt>每缝转角</dt><dd id="miterJointAngleResult">-</dd></div>
+              <div><dt>单端切割角</dt><dd id="miterCutAngleResult">-</dd></div>
+              <div><dt>理论单侧退切</dt><dd id="miterCutbackResult">-</dd></div>
+            </dl>
+            <details class="calc-help">
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <p>总转角平均分给各接缝；每个接缝由相邻两个端面共同形成，所以单端切割角是每缝转角的一半。</p>
+                <p class="calc-formula">接缝数 = 管节数 - 1<br>每缝转角 = 总转角 ÷ 接缝数<br>单端切割角 = 每缝转角 ÷ 2<br>单侧退切 = 外径 × tan(单端切割角)</p>
+                <p class="calc-caution">本页只做几何放样，不判断斜接弯头能否用于对应压力、介质和工况。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="miterDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="斜接弯头管节中心线示意"></svg>
+            <p class="calc-caption">是否允许使用斜接弯头、最少管节数和检验要求由设计规范决定，本工具不作强度判定。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-saddle" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">SADDLE TEMPLATE</span>
+            <h3>90°支管马鞍口展开</h3>
+            <p>按主管和支管外径计算支管端部的理论相贯线，以15°等分显示半周放样深度。</p>
+            <div class="calc-input-grid two-col">
+              <label>主管外径 mm<input id="saddleHeaderDiameter" type="number" min="1" value="325" step="1"></label>
+              <label>支管外径 mm<input id="saddleBranchDiameter" type="number" min="1" value="168" step="1"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>支管展开周长</dt><dd id="saddleCircResult">-</dd></div>
+              <div><dt>最大理论深度</dt><dd id="saddleDepthResult">-</dd></div>
+            </dl>
+            <p id="saddleError" class="calc-error" role="alert"></p>
+            <details class="calc-help">
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <p>把支管圆周等分，将每个等分点投影到主管外圆，得到支管端部的理论相贯线。表格只显示0°至90°，其余象限按对称关系放样。</p>
+                <p class="calc-caution">曲线未包含坡口角、焊缝间隙和支管补强要求；支管大于主管时不能使用当前公式。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="saddleDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="马鞍口展开曲线"></svg>
+          </div>
+        </div>
+        <div class="saddle-table-wrap">
+          <table class="saddle-table">
+            <thead><tr><th>圆周角</th><th>0°</th><th>15°</th><th>30°</th><th>45°</th><th>60°</th><th>75°</th><th>90°</th></tr></thead>
+            <tbody><tr><th>放样深度 mm</th><td id="saddlePoint0">-</td><td id="saddlePoint15">-</td><td id="saddlePoint30">-</td><td id="saddlePoint45">-</td><td id="saddlePoint60">-</td><td id="saddlePoint75">-</td><td id="saddlePoint90">-</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="calc-compare" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">AS-BUILT COMPARE</span>
+            <h3>旧管与改造管段对比</h3>
+            <p>把共同起点设为零，分别输入旧管和新设计终点的坐标差，查看长度变化和接口修正方向。</p>
+            <div class="compare-inputs">
+              <fieldset>
+                <legend>旧管实测</legend>
+                <label>ΔE<input id="compareOldE" type="number" value="2000" step="10"></label>
+                <label>ΔN<input id="compareOldN" type="number" value="400" step="10"></label>
+                <label>ΔEL<input id="compareOldZ" type="number" value="200" step="10"></label>
+              </fieldset>
+              <fieldset>
+                <legend>新设计</legend>
+                <label>ΔE<input id="compareNewE" type="number" value="1950" step="10"></label>
+                <label>ΔN<input id="compareNewN" type="number" value="520" step="10"></label>
+                <label>ΔEL<input id="compareNewZ" type="number" value="260" step="10"></label>
+              </fieldset>
+            </div>
+            <dl class="calc-results">
+              <div><dt>旧管真长</dt><dd id="compareOldLength">-</dd></div>
+              <div><dt>新管真长</dt><dd id="compareNewLength">-</dd></div>
+              <div><dt>长度差</dt><dd id="compareLengthDiff">-</dd></div>
+              <div><dt>接口修正 ΔE / ΔN / ΔEL</dt><dd id="compareEndDiff">-</dd></div>
+            </dl>
+            <details class="calc-help">
+              <summary>详细计算说明</summary>
+              <div class="calc-help-content">
+                <p>虚线代表旧管实测，实线代表新设计；接口修正值等于新设计终点减去旧管终点。正负号只表示坐标方向，不等于可直接切除或增加的长度。</p>
+                <p class="calc-caution">改造前还要确认旧管受力、腐蚀、材料、支架状态及切割后是否会回弹或坠落。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="compareDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="旧管与改造管段平面和立面对比"></svg>
+            <p class="calc-caption">长度差不是直接下料尺寸；还要扣除管件、坡口、焊口间隙并按现场口安排调整量。</p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="page-route" class="page learning-page" hidden>
+      <header class="content-header">
+        <h2>30 天单线图学习路线</h2>
+        <p>先建立坐标感，再识图，最后把图纸与现场安装动作对应起来。</p>
+      </header>
+      <div class="learning-layout">
+        <section class="week-block">
+          <div class="week-number">01</div>
+          <div>
+            <h3>坐标与空间方向</h3>
+            <label class="task"><input type="checkbox" data-task="axis"> 能用 E、N、EL 描述任意点</label>
+            <label class="task"><input type="checkbox" data-task="delta"> 能根据方向和长度算下一点</label>
+            <label class="task"><input type="checkbox" data-task="shadow"> 能从地面投影判断水平走向</label>
+            <label class="task"><input type="checkbox" data-task="iso-axis"> 能辨认等轴图三根坐标轴</label>
+          </div>
+        </section>
+        <section class="week-block">
+          <div class="week-number">02</div>
+          <div>
+            <h3>管件、阀门与连接</h3>
+            <label class="task"><input type="checkbox" data-task="fittings"> 识别弯头、三通、大小头、管帽</label>
+            <label class="task"><input type="checkbox" data-task="flange"> 区分平焊、对焊和盲板法兰</label>
+            <label class="task"><input type="checkbox" data-task="valves"> 识别闸阀、截止阀、球阀、蝶阀、止回阀</label>
+            <label class="task"><input type="checkbox" data-task="rating"> 理解 DN、SCH、PN、Class 的用途</label>
+          </div>
+        </section>
+        <section class="week-block">
+          <div class="week-number">03</div>
+          <div>
+            <h3>单线图与材料表</h3>
+            <label class="task"><input type="checkbox" data-task="line-follow"> 能从起点沿管线走到终点</label>
+            <label class="task"><input type="checkbox" data-task="elevation"> 能读取坐标、标高和坡度</label>
+            <label class="task"><input type="checkbox" data-task="weld"> 识别预制焊口与现场焊口</label>
+            <label class="task"><input type="checkbox" data-task="bom"> 能按图列出基础材料表</label>
+          </div>
+        </section>
+        <section class="week-block">
+          <div class="week-number">04</div>
+          <div>
+            <h3>图纸对应现场</h3>
+            <label class="task"><input type="checkbox" data-task="takeout"> 理解中心距、下料长和管件扣除</label>
+            <label class="task"><input type="checkbox" data-task="support"> 能定位支吊架、阀门和设备接管</label>
+            <label class="task"><input type="checkbox" data-task="sequence"> 能说出组对、安装、找正的顺序</label>
+            <label class="task"><input type="checkbox" data-task="safety"> 能说明动火、吊装、试压的主要风险</label>
+          </div>
+        </section>
+      </div>
+      <footer class="progress-footer">
+        <div><span>完成度</span><strong id="routeProgressText">0 / 16</strong></div>
+        <div class="progress-track"><div id="routeProgressBar"></div></div>
+      </footer>
+    </section>
+
+    <section id="page-glossary" class="page glossary-page" hidden>
+      <header class="content-header">
+        <h2>单线图速查表</h2>
+        <p>现场常见缩写、图纸类型与空间判断关键词。</p>
+      </header>
+      <div class="glossary-grid">
+        <section>
+          <h3>坐标与图纸</h3>
+          <dl>
+            <div><dt>E / Easting</dt><dd>东向坐标，向东增加</dd></div>
+            <div><dt>N / Northing</dt><dd>北向坐标，向北增加</dd></div>
+            <div><dt>EL / Elevation</dt><dd>标高，向上增加</dd></div>
+            <div><dt>ISO</dt><dd>管道轴测图或单线图</dd></div>
+            <div><dt>P&amp;ID</dt><dd>管道及仪表流程图</dd></div>
+            <div><dt>GA</dt><dd>总布置图</dd></div>
+            <div><dt>Spool</dt><dd>预制管段图</dd></div>
+            <div><dt>BOM / MTO</dt><dd>材料清单</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>规格与连接</h3>
+          <dl>
+            <div><dt>DN / NPS</dt><dd>公称直径</dd></div>
+            <div><dt>SCH</dt><dd>管壁厚度系列</dd></div>
+            <div><dt>PN / Class</dt><dd>压力等级</dd></div>
+            <div><dt>BW</dt><dd>对焊连接</dd></div>
+            <div><dt>SW</dt><dd>承插焊连接</dd></div>
+            <div><dt>THD</dt><dd>螺纹连接</dd></div>
+            <div><dt>WN / SO / BL</dt><dd>对焊颈、平焊、盲板法兰</dd></div>
+            <div><dt>LR / SR</dt><dd>长半径、短半径弯头</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>施工标记</h3>
+          <dl>
+            <div><dt>FW</dt><dd>现场焊口</dd></div>
+            <div><dt>SW</dt><dd>车间或预制焊口，须结合图例</dd></div>
+            <div><dt>TOS / BOP</dt><dd>管顶标高 / 管底标高</dd></div>
+            <div><dt>CL</dt><dd>中心线</dd></div>
+            <div><dt>TOE</dt><dd>端点或构件端部</dd></div>
+            <div><dt>Typ.</dt><dd>典型做法</dd></div>
+            <div><dt>Hold</dt><dd>待定或暂缓施工</dd></div>
+            <div><dt>Rev.</dt><dd>图纸版本</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>改造与放样</h3>
+          <dl>
+            <div><dt>Miter Bend</dt><dd>由多个斜切管节组成的弯头</dd></div>
+            <div><dt>Saddle</dt><dd>支管与主管相贯形成的马鞍口</dd></div>
+            <div><dt>Cutback</dt><dd>斜切端面相对方口的退切尺寸</dd></div>
+            <div><dt>As-built</dt><dd>按照现场实际状态形成的竣工资料</dd></div>
+            <div><dt>Closure Spool</dt><dd>根据最终接口实测制作的闭合管段</dd></div>
+            <div><dt>Line Break</dt><dd>打开可能含危险介质的管线或管道</dd></div>
+            <div><dt>Cold Cut</dt><dd>按批准方法进行的无火焰冷切割</dd></div>
+            <div><dt>Hot Tap</dt><dd>在役带压开孔，必须由专项设计与专业队伍实施</dd></div>
+          </dl>
+        </section>
+      </div>
+    </section>
+
+    <section id="page-profile" class="page profile-page" hidden>
+      <header class="content-header">
+        <h2>我的学习</h2>
+        <p>不同学习者分别保存课程进度、收藏案例和错题记录，数据只保存在本机。</p>
+      </header>
+      <div class="profile-layout">
+        <section class="profile-control-band">
+          <div>
+            <label for="learnerProfileSelect">当前学习者</label>
+            <select id="learnerProfileSelect"></select>
+          </div>
+          <div>
+            <label for="newLearnerName">新建学习者</label>
+            <div class="profile-create-row"><input id="newLearnerName" type="text" maxlength="20" placeholder="输入姓名"><button id="addLearnerBtn" class="primary-btn" type="button">新建</button></div>
+          </div>
+        </section>
+        <section class="profile-stats" aria-label="学习统计">
+          <div><span>学习路线</span><strong id="profileRouteStat">0 / 16</strong></div>
+          <div><span>专业课程</span><strong id="profileModuleStat">0 / 20</strong></div>
+          <div><span>收藏案例</span><strong id="profileFavoriteStat">0</strong></div>
+          <div><span>错题记录</span><strong id="profileWrongStat">0</strong></div>
+        </section>
+        <div class="profile-columns">
+          <section>
+            <div class="section-heading"><h3>收藏案例</h3><button class="secondary-btn profile-jump" type="button" data-profile-jump="trainer">去练图</button></div>
+            <div id="profileFavoriteList" class="profile-list"></div>
+          </section>
+          <section>
+            <div class="section-heading"><h3>错题记录</h3><button class="secondary-btn profile-jump" type="button" data-profile-jump="modules">去复习</button></div>
+            <div id="profileWrongList" class="profile-list"></div>
+          </section>
+        </div>
+        <section class="profile-data-actions">
+          <h3>数据管理</h3>
+          <p>可导出全部学习者数据，在另一台手机导入恢复。</p>
+          <div>
+            <button id="exportLearningDataBtn" class="secondary-btn" type="button">导出数据</button>
+            <label class="secondary-btn import-label">导入数据<input id="importLearningDataInput" type="file" accept="application/json"></label>
+            <button id="resetLearnerBtn" class="secondary-btn danger-btn" type="button">清空当前学习者</button>
+          </div>
+          <p id="profileMessage" class="status-line" aria-live="polite"></p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobile-bottom-nav" aria-label="手机主导航">
+    <button type="button" data-mobile-page="modules"><b>学</b><span>学习</span></button>
+    <button type="button" class="is-active" data-mobile-page="trainer"><b>图</b><span>练图</span></button>
+    <button type="button" data-mobile-page="calc"><b>算</b><span>计算</span></button>
+    <button type="button" data-mobile-page="glossary"><b>查</b><span>资料</span></button>
+    <button type="button" data-mobile-page="profile"><b>我</b><span>我的</span></button>
+  </nav>
+
+  <button id="quickCalcBtn" class="quick-calc-launch" type="button" aria-label="打开工程计算器" title="打开工程计算器">▦</button>
+  <div id="quickCalcOverlay" class="quick-calc-overlay" hidden></div>
+  <aside id="quickCalcDrawer" class="quick-calc-drawer" aria-label="全局工程计算器" hidden>
+    <header>
+      <div><span>GLOBAL CALCULATOR</span><h2>随手算</h2></div>
+      <button id="quickCalcCloseBtn" class="icon-btn" type="button" aria-label="关闭计算器">×</button>
+    </header>
+    <nav class="quick-calc-tabs" aria-label="计算器分类">
+      <button class="is-active" type="button" data-qcalc-mode="basic">算式</button>
+      <button type="button" data-qcalc-mode="circle">圆</button>
+      <button type="button" data-qcalc-mode="triangle">三角</button>
+      <button type="button" data-qcalc-mode="pipe">管道</button>
+      <button type="button" data-qcalc-mode="units">换算</button>
+    </nav>
+    <section id="qcalc-basic" class="qcalc-panel is-active">
+      <div class="quick-display">
+        <input id="quickExpression" type="text" inputmode="decimal" autocomplete="off" value="600/sin(45)" aria-label="计算表达式">
+        <strong id="quickResult" aria-live="polite">-</strong>
+      </div>
+      <div class="quick-angle-row"><span>三角函数角度</span><button id="quickAngleModeBtn" type="button">DEG</button></div>
+      <div class="quick-keypad" aria-label="计算按键">
+        <button type="button" data-calc-key="(">(</button><button type="button" data-calc-key=")">)</button><button type="button" data-calc-key="sqrt(">√</button><button type="button" data-calc-key="^">xʸ</button><button type="button" data-calc-action="clear">C</button>
+        <button type="button" data-calc-key="sin(">sin</button><button type="button" data-calc-key="cos(">cos</button><button type="button" data-calc-key="tan(">tan</button><button type="button" data-calc-key="PI">π</button><button type="button" data-calc-action="backspace">⌫</button>
+        <button type="button" data-calc-key="7">7</button><button type="button" data-calc-key="8">8</button><button type="button" data-calc-key="9">9</button><button type="button" data-calc-key="/">÷</button><button type="button" data-calc-action="percent">%</button>
+        <button type="button" data-calc-key="4">4</button><button type="button" data-calc-key="5">5</button><button type="button" data-calc-key="6">6</button><button type="button" data-calc-key="*">×</button><button type="button" data-calc-key="-">−</button>
+        <button type="button" data-calc-key="1">1</button><button type="button" data-calc-key="2">2</button><button type="button" data-calc-key="3">3</button><button type="button" data-calc-key="+">+</button><button type="button" data-calc-action="equals" class="equals-key">=</button>
+        <button type="button" data-calc-key="0" class="zero-key">0</button><button type="button" data-calc-key=".">.</button><button type="button" data-calc-key=",">,</button>
+      </div>
+      <div class="quick-history"><h3>最近计算</h3><div id="quickHistoryList"></div></div>
+    </section>
+    <section id="qcalc-circle" class="qcalc-panel" hidden>
+      <h3>圆与圆周</h3>
+      <label>已知量<select id="circleKnownType"><option value="radius">半径 R</option><option value="diameter">直径 D</option><option value="circumference">周长 C</option></select></label>
+      <label>数值 mm<input id="circleKnownValue" type="number" value="100" step="0.1"></label>
+      <dl class="quick-results"><div><dt>半径</dt><dd id="circleRadiusResult">-</dd></div><div><dt>直径</dt><dd id="circleDiameterResult">-</dd></div><div><dt>周长</dt><dd id="circleCircResult">-</dd></div><div><dt>面积</dt><dd id="circleAreaResult">-</dd></div></dl>
+    </section>
+    <section id="qcalc-triangle" class="qcalc-panel" hidden>
+      <h3>直角三角形</h3>
+      <label>直角边 A mm<input id="triangleA" type="number" value="600" step="0.1"></label>
+      <label>直角边 B mm<input id="triangleB" type="number" value="800" step="0.1"></label>
+      <dl class="quick-results"><div><dt>斜边</dt><dd id="triangleCResult">-</dd></div><div><dt>A对角</dt><dd id="triangleAngleAResult">-</dd></div><div><dt>B对角</dt><dd id="triangleAngleBResult">-</dd></div><div><dt>面积</dt><dd id="triangleAreaResult">-</dd></div></dl>
+    </section>
+    <section id="qcalc-pipe" class="qcalc-panel" hidden>
+      <h3>管道周长、重量与容积</h3>
+      <label>实际外径 OD mm<input id="pipeCalcOd" type="number" value="114.3" step="0.1"></label>
+      <label>壁厚 t mm<input id="pipeCalcThickness" type="number" value="6" step="0.1"></label>
+      <label>长度 m<input id="pipeCalcLength" type="number" value="6" step="0.1"></label>
+      <label>密度 kg/m³<input id="pipeCalcDensity" type="number" value="7850" step="10"></label>
+      <dl class="quick-results"><div><dt>外圆周长</dt><dd id="pipeCalcCircResult">-</dd></div><div><dt>外表面积</dt><dd id="pipeCalcSurfaceResult">-</dd></div><div><dt>内部容积</dt><dd id="pipeCalcVolumeResult">-</dd></div><div><dt>理论重量</dt><dd id="pipeCalcWeightResult">-</dd></div></dl>
+    </section>
+    <section id="qcalc-units" class="qcalc-panel" hidden>
+      <h3>单位换算</h3>
+      <label>类别<select id="unitCategory"><option value="length">长度</option><option value="pressure">压力</option></select></label>
+      <label>数值<input id="unitValue" type="number" value="1000" step="0.1"></label>
+      <label>从<select id="unitFrom"></select></label>
+      <label>换算为<select id="unitTo"></select></label>
+      <div class="unit-result"><span>换算结果</span><strong id="unitResult">-</strong></div>
+    </section>
+    <footer>
+      <button id="quickCopyBtn" class="secondary-btn" type="button">复制结果</button>
+      <button id="quickFillBtn" class="primary-btn" type="button">回填当前输入框</button>
+    </footer>
+  </aside>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+  <script src="vendor/expr-eval.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
