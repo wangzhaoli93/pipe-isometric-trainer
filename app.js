@@ -382,6 +382,7 @@
   let quickCalcLastResult = null;
   let quickCalcHistory = [];
   let quickCalcParser = null;
+  let storageWarningShown = false;
 
   const els = {
     list: document.getElementById('segmentList'),
@@ -419,45 +420,66 @@
 
   // 渲染状态管理
   let needsRender = true;
-  let renderScheduled = false;
+  let renderFrameId = 0;
+
+  function trainerIsVisible() {
+    const page = document.getElementById('page-trainer');
+    return !document.hidden && page && page.classList.contains('is-active');
+  }
+
+  function scheduleRender() {
+    if (!renderFrameId) renderFrameId = requestAnimationFrame(renderFrame);
+  }
+
+  function renderFrame() {
+    renderFrameId = 0;
+    if (!renderer || !trainerIsVisible()) return;
+    const controlsChanged = controls ? controls.update() : false;
+    if (needsRender || controlsChanged) {
+      needsRender = false;
+      positionCoordLabels();
+      renderer.render(scene, camera);
+    }
+    if (controlsChanged) scheduleRender();
+  }
 
   function markDirty() {
     needsRender = true;
-    if (!renderScheduled) {
-      renderScheduled = true;
-      requestAnimationFrame(() => {
-        renderScheduled = false;
-        if (needsRender) {
-          needsRender = false;
-          renderer.render(scene, camera);
-        }
-      });
-    }
+    scheduleRender();
   }
 
   // 几何体缓存
   const geometryCache = {
     cylinders: new Map(),
     spheres: new Map(),
-    getCylinder(radius, length) {
-      const key = `${radius.toFixed(4)}_${length.toFixed(4)}`;
+    objects: new WeakSet(),
+    getCylinder(radius) {
+      const key = radius.toFixed(4);
       if (!this.cylinders.has(key)) {
-        this.cylinders.set(key, new THREE.CylinderGeometry(radius, radius, length, VISUAL_CONFIG.pipe.segments));
+        const geometry = new THREE.CylinderGeometry(radius, radius, 1, VISUAL_CONFIG.pipe.segments);
+        this.cylinders.set(key, geometry);
+        this.objects.add(geometry);
       }
       return this.cylinders.get(key);
     },
     getSphere(radius) {
       const key = radius.toFixed(4);
       if (!this.spheres.has(key)) {
-        this.spheres.set(key, new THREE.SphereGeometry(radius, VISUAL_CONFIG.joint.segments, VISUAL_CONFIG.joint.rings));
+        const geometry = new THREE.SphereGeometry(radius, VISUAL_CONFIG.joint.segments, VISUAL_CONFIG.joint.rings);
+        this.spheres.set(key, geometry);
+        this.objects.add(geometry);
       }
       return this.spheres.get(key);
+    },
+    has(geometry) {
+      return this.objects.has(geometry);
     },
     clear() {
       this.cylinders.forEach(g => g.dispose());
       this.spheres.forEach(g => g.dispose());
       this.cylinders.clear();
       this.spheres.clear();
+      this.objects = new WeakSet();
     }
   };
 
@@ -486,6 +508,12 @@
         });
       }
       return this.joints[key];
+    },
+    clear() {
+      Object.values(this.pipes).forEach((material) => material.dispose());
+      Object.values(this.joints).forEach((material) => material.dispose());
+      this.pipes = {};
+      this.joints = {};
     }
   };
 
@@ -499,7 +527,7 @@
     return cachedElements[id];
   }
 
-  let scene, camera, renderer, controls, pipeGroup, shadowGroup, grid, raycaster, pointer;
+  let scene, camera, renderer, controls, pipeGroup, shadowGroup, grid, floor, raycaster, pointer;
   let pipeMeshes = [];
   let pointVectors = [];
   let currentView = 'iso';
@@ -541,6 +569,10 @@
       } else {
         console.warn(`写入 localStorage 键 "${key}" 失败:`, error);
       }
+      if (!storageWarningShown) {
+        storageWarningShown = true;
+        alert('学习数据保存失败，可能是本机存储空间不足。请先在“我的”中导出备份并清理旧数据。');
+      }
       return false;
     }
   }
@@ -555,14 +587,15 @@
       learnerProfiles = [{ id: 'default', name: '我的学习', createdAt: new Date().toISOString() }];
       writeJson('pipe-learner-profiles', learnerProfiles);
     }
-    activeProfileId = localStorage.getItem('pipe-active-profile') || learnerProfiles[0].id;
+    const rawActiveProfile = localStorage.getItem('pipe-active-profile');
+    activeProfileId = readJson('pipe-active-profile', null) || rawActiveProfile || learnerProfiles[0].id;
     if (!learnerProfiles.some((profile) => profile.id === activeProfileId)) activeProfileId = learnerProfiles[0].id;
-    localStorage.setItem('pipe-active-profile', activeProfileId);
+    writeJson('pipe-active-profile', activeProfileId);
 
     const migrations = ['pipe-route-progress', 'pipe-module-progress'];
     migrations.forEach((base) => {
       if (localStorage.getItem(profileKey(base)) === null && localStorage.getItem(base) !== null) {
-        localStorage.setItem(profileKey(base), localStorage.getItem(base));
+        writeJson(profileKey(base), readJson(base, []));
       }
     });
     loadProfileVariables();
@@ -699,7 +732,7 @@
     light.shadow.mapSize.set(1024, 1024);
     scene.add(light);
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0xf4f5f5, roughness: 0.92 }));
+    floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0xf4f5f5, roughness: 0.92 }));
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.01;
     floor.receiveShadow = true;
@@ -723,7 +756,15 @@
     pointer = new THREE.Vector2();
     renderer.domElement.addEventListener('pointerdown', onScenePointer);
     new ResizeObserver(resizeThree).observe(els.viewport);
-    animate();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) markDirty();
+    });
+    window.addEventListener('beforeunload', () => {
+      geometryCache.clear();
+      materialCache.clear();
+      renderer.dispose();
+    });
+    markDirty();
   }
 
   function resizeThree() {
@@ -739,7 +780,7 @@
     while (group.children.length) {
       const child = group.children.pop();
       // 只释放非缓存的几何体（线条等动态创建的）
-      if (child.geometry && !geometryCache.cylinders.has(child.geometry) && !geometryCache.spheres.has(child.geometry)) {
+      if (child.geometry && !geometryCache.has(child.geometry)) {
         child.geometry.dispose();
       }
       // 只释放非缓存的材质
@@ -752,8 +793,9 @@
   function cylinderBetween(start, end, radius, material) {
     const delta = new THREE.Vector3().subVectors(end, start);
     const length = delta.length();
-    const geometry = geometryCache.getCylinder(radius, length);
+    const geometry = geometryCache.getCylinder(radius);
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.scale.y = length;
     mesh.position.copy(start).add(end).multiplyScalar(0.5);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.clone().normalize());
     mesh.castShadow = true;
@@ -899,17 +941,6 @@
       tag.style.visibility = p.z > 1 ? 'hidden' : 'visible';
       if (p.z <= 1) placed.push(chosen);
     });
-  }
-
-  function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    positionCoordLabels();
-    // 只在需要时渲染
-    if (needsRender) {
-      needsRender = false;
-      renderer.render(scene, camera);
-    }
   }
 
   function projectIso(point) {
@@ -1158,7 +1189,7 @@
 
   function initTrainingModules() {
     try {
-      const saved = JSON.parse(localStorage.getItem(profileKey('pipe-module-progress')) || '[]');
+      const saved = readJson(profileKey('pipe-module-progress'), []);
       completedTrainingLessons = new Set(Array.isArray(saved) ? saved : []);
     } catch (error) {
       completedTrainingLessons = new Set();
@@ -1248,7 +1279,7 @@
   function switchLearnerProfile(profileId) {
     if (!learnerProfiles.some((profile) => profile.id === profileId)) return;
     activeProfileId = profileId;
-    localStorage.setItem('pipe-active-profile', activeProfileId);
+    writeJson('pipe-active-profile', activeProfileId);
     applyActiveProfileState();
   }
 
@@ -1268,25 +1299,57 @@
   }
 
   function importLearningData(file) {
+    const message = document.getElementById('profileMessage');
+    if (file.size > 1024 * 1024) {
+      message.textContent = '导入失败：文件不能超过 1 MB。';
+      message.className = 'status-line is-error';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
-      const message = document.getElementById('profileMessage');
+      const backup = new Map();
+      const writtenKeys = [];
       try {
         const payload = JSON.parse(reader.result);
-        if (!Array.isArray(payload.profiles) || !payload.data) throw new Error('文件格式不正确');
-        learnerProfiles = payload.profiles.filter((profile) => profile && profile.id && profile.name);
-        if (!learnerProfiles.length) throw new Error('没有学习者数据');
-        localStorage.setItem('pipe-learner-profiles', JSON.stringify(learnerProfiles));
-        learnerProfiles.forEach((profile) => profileDataBases().forEach((base) => {
-          const value = payload.data[profile.id]?.[base] ?? [];
-          localStorage.setItem(profileKey(base, profile.id), JSON.stringify(value));
+        if (payload.version !== 1 || !Array.isArray(payload.profiles) || typeof payload.data !== 'object' || payload.data === null) throw new Error('文件版本或格式不正确');
+        const importedProfiles = payload.profiles.map((profile) => ({
+          id: String(profile?.id || ''), name: String(profile?.name || '').trim(), createdAt: String(profile?.createdAt || new Date().toISOString())
         }));
-        activeProfileId = learnerProfiles.some((profile) => profile.id === payload.activeProfileId) ? payload.activeProfileId : learnerProfiles[0].id;
-        localStorage.setItem('pipe-active-profile', activeProfileId);
+        if (!importedProfiles.length || importedProfiles.length > 50) throw new Error('学习者数量必须在 1 到 50 之间');
+        if (importedProfiles.some((profile) => !/^[A-Za-z0-9_-]{1,64}$/.test(profile.id) || !profile.name || profile.name.length > 20)) throw new Error('学习者ID或姓名不合法');
+        if (new Set(importedProfiles.map((profile) => profile.id)).size !== importedProfiles.length) throw new Error('学习者ID重复');
+
+        const staged = new Map();
+        importedProfiles.forEach((profile) => profileDataBases().forEach((base) => {
+          const value = payload.data[profile.id]?.[base] ?? [];
+          if (!Array.isArray(value)) throw new Error(`${profile.name} 的 ${base} 数据格式不正确`);
+          staged.set(profileKey(base, profile.id), JSON.stringify(value));
+        }));
+        const importedActiveId = importedProfiles.some((profile) => profile.id === payload.activeProfileId) ? payload.activeProfileId : importedProfiles[0].id;
+        staged.set('pipe-learner-profiles', JSON.stringify(importedProfiles));
+        staged.set('pipe-active-profile', JSON.stringify(importedActiveId));
+
+        staged.forEach((value, key) => backup.set(key, localStorage.getItem(key)));
+        staged.forEach((value, key) => {
+          localStorage.setItem(key, value);
+          writtenKeys.push(key);
+        });
+
+        learnerProfiles = importedProfiles;
+        activeProfileId = importedActiveId;
         applyActiveProfileState();
         message.textContent = '学习数据已导入。';
         message.className = 'status-line is-success';
       } catch (error) {
+        writtenKeys.forEach((key) => {
+          try {
+            const oldValue = backup.get(key);
+            if (oldValue === null || oldValue === undefined) localStorage.removeItem(key);
+            else localStorage.setItem(key, oldValue);
+          } catch (rollbackError) {
+            console.error('导入回滚失败:', rollbackError);
+          }
+        });
         message.textContent = `导入失败：${error.message}`;
         message.className = 'status-line is-error';
       }
@@ -1302,7 +1365,7 @@
       if (!name) return;
       const profile = { id: `learner-${Date.now()}`, name, createdAt: new Date().toISOString() };
       learnerProfiles.push(profile);
-      localStorage.setItem('pipe-learner-profiles', JSON.stringify(learnerProfiles));
+      writeJson('pipe-learner-profiles', learnerProfiles);
       input.value = '';
       switchLearnerProfile(profile.id);
     });
@@ -1911,20 +1974,21 @@
     }));
     updateMobileNavigation('trainer');
 
-    // 触摸手势支持 - 在3D视图上滑动切换段落
+    // 在步骤条上滑动切换段落，避免与3D单指旋转手势冲突。
     let touchStartX = 0;
     let touchStartY = 0;
     let touchStartTime = 0;
     const swipeThreshold = 50;
     const swipeTimeLimit = 300;
 
-    els.viewport.addEventListener('touchstart', (e) => {
+    const swipeTarget = document.querySelector('.scene-footer');
+    swipeTarget.addEventListener('touchstart', (e) => {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       touchStartTime = Date.now();
     }, { passive: true });
 
-    els.viewport.addEventListener('touchend', (e) => {
+    swipeTarget.addEventListener('touchend', (e) => {
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
       const deltaX = touchEndX - touchStartX;
@@ -1979,42 +2043,41 @@
   function initThemeToggle() {
     const themeBtn = getCachedElement('themeToggleBtn');
     if (!themeBtn) return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const rawTheme = localStorage.getItem('pipe-theme');
+    let preference = readJson('pipe-theme', null);
+    if (!preference && (rawTheme === 'dark' || rawTheme === 'light' || rawTheme === 'auto')) preference = rawTheme;
+    if (!['dark', 'light', 'auto'].includes(preference)) preference = 'auto';
 
-    // 读取保存的主题设置
-    const savedTheme = localStorage.getItem('pipe-theme') || 'light';
-    const isDark = savedTheme === 'dark' || (savedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const applyTheme = () => {
+      const isDark = preference === 'dark' || (preference === 'auto' && media.matches);
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      themeBtn.setAttribute('aria-pressed', String(isDark));
+      themeBtn.title = isDark ? '切换到浅色模式' : '切换到暗色模式';
+      themeBtn.setAttribute('aria-label', themeBtn.title);
+      if (scene) scene.background = new THREE.Color(isDark ? 0x161b20 : 0xedf0f1);
+      if (floor?.material?.color) floor.material.color.set(isDark ? 0x1c2128 : 0xf4f5f5);
+      const gridMaterials = grid ? (Array.isArray(grid.material) ? grid.material : [grid.material]) : [];
+      gridMaterials.forEach((material) => material.color?.set(isDark ? 0x4b5560 : 0xffffff));
+      markDirty();
+    };
 
-    if (isDark) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      themeBtn.setAttribute('aria-pressed', 'true');
-    }
-
+    applyTheme();
     themeBtn.addEventListener('click', () => {
-      const currentTheme = document.documentElement.getAttribute('data-theme');
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-      if (newTheme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        themeBtn.setAttribute('aria-pressed', 'true');
-        localStorage.setItem('pipe-theme', 'dark');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-        themeBtn.setAttribute('aria-pressed', 'false');
-        localStorage.setItem('pipe-theme', 'light');
-      }
-
-      // 更新 Three.js 场景背景
-      if (scene) {
-        scene.background = new THREE.Color(newTheme === 'dark' ? 0x161b20 : 0xedf0f1);
-        markDirty();
-      }
+      const currentlyDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      preference = currentlyDark ? 'light' : 'dark';
+      writeJson('pipe-theme', preference);
+      applyTheme();
+    });
+    media.addEventListener?.('change', () => {
+      if (preference === 'auto') applyTheme();
     });
   }
 
   function initCollapsiblePanels() {
     let saved = [];
     try {
-      saved = JSON.parse(localStorage.getItem('pipe-collapsed-sections') || '[]');
+      saved = readJson('pipe-collapsed-sections', []);
     } catch (error) {
       saved = [];
     }
@@ -2037,7 +2100,7 @@
         const collapsed = !section.classList.contains('is-collapsed');
         setCollapsed(collapsed);
         const values = Array.from(document.querySelectorAll('.builder-panel .panel-section')).map((item, itemIndex) => item.classList.contains('is-collapsed') ? (sectionNames[itemIndex] || `section-${itemIndex}`) : null).filter(Boolean);
-        localStorage.setItem('pipe-collapsed-sections', JSON.stringify(values));
+        writeJson('pipe-collapsed-sections', values);
         refreshThreeLayout();
       });
       heading.appendChild(button);
@@ -2121,7 +2184,7 @@
       setTimeout(applyTrainingLayout, 0);
     }));
 
-    const saved = JSON.parse(localStorage.getItem(profileKey('pipe-route-progress')) || '[]');
+    const saved = readJson(profileKey('pipe-route-progress'), []);
     document.querySelectorAll('[data-task]').forEach((checkbox) => {
       checkbox.checked = saved.includes(checkbox.dataset.task);
       checkbox.addEventListener('change', saveRouteProgress);
@@ -2134,6 +2197,8 @@
       if (event.target.matches('input, select, textarea, [contenteditable]')) return;
       // 如果快速计算器打开，不触发训练器快捷键
       if (!getCachedElement('quickCalcDrawer').hidden) return;
+      // 仅在训练器页面启用，避免方向键劫持其他页面滚动。
+      if (!getCachedElement('page-trainer').classList.contains('is-active')) return;
 
       const shortcuts = {
         'n': () => getCachedElement('addSegmentBtn').click(),
@@ -2149,9 +2214,10 @@
         }
       };
 
-      if (shortcuts[event.key]) {
+      const shortcutKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (shortcuts[shortcutKey]) {
         event.preventDefault();
-        shortcuts[event.key]();
+        shortcuts[shortcutKey]();
       }
     });
   }

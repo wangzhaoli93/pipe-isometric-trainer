@@ -3,8 +3,8 @@
     "id" : "H5836F09A",
     "name" : "管线空间训练器",
     "version" : {
-        "name" : "1.5.1",
-        "code" : 151
+        "name" : "1.5.2",
+        "code" : 152
     },
     "description" : "工业管道单线图、三维走向与坐标训练工具",
     "launch_path" : "index.html",

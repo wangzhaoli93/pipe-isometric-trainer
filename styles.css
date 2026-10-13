@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #f5f6f7;
   --surface: #ffffff;
   --surface-alt: #eef1f3;
@@ -16,45 +16,9 @@
   font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
 }
 
-/* 暗色模式 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1a1f23;
-    --surface: #24292e;
-    --surface-alt: #2d333b;
-    --text: #e1e4e8;
-    --muted: #8b949e;
-    --border: #30363d;
-    --primary: #58a6ff;
-    --primary-soft: #1f3a5f;
-    --orange: #f0883e;
-    --green: #3fb950;
-    --red: #f85149;
-    --shadow: rgba(0, 0, 0, 0.3);
-  }
-
-  .scene-panel { background: #161b20; }
-  .iso-svg { background: #1c2128; }
-  .calc-svg { background: #1c2128; }
-  .floor { background: #161b20; }
-  .compass { background: rgba(36, 41, 46, 0.9); border-color: rgba(225, 228, 232, 0.2); }
-  .coord-tag { background: rgba(36, 41, 46, 0.95); border-color: rgba(225, 228, 232, 0.16); }
-  .quiz-cover { background: rgba(26, 31, 35, 0.96); }
-  .scene-toolbar, .scene-footer { background: rgba(36, 41, 46, 0.94); }
-  .quick-calc-drawer { background: var(--surface); }
-  .quick-calc-drawer > footer { background: rgba(36, 41, 46, 0.96); }
-  .mobile-bottom-nav { background: rgba(36, 41, 46, 0.98); }
-  .standard-note { background: #2d2015; color: #f0883e; border-left-color: var(--orange); }
-  .calc-formula { background: var(--primary-soft); }
-  .calc-caution { background: #2d2015; color: #f0883e; }
-  .scenario-choice.is-correct { background: #1a2e1f; color: #3fb950; }
-  .scenario-choice.is-wrong { background: #2d1517; color: #f85149; }
-  .module-lesson-btn.is-complete .lesson-status { background: var(--green); border-color: var(--green); }
-  .lesson-complete-btn.is-complete { background: var(--green); border-color: var(--green); }
-}
-
 /* 手动暗色模式切换 */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #1a1f23;
   --surface: #24292e;
   --surface-alt: #2d333b;
@@ -539,27 +503,6 @@ input:focus, select:focus, button:focus-visible { outline: 2px solid rgba(20, 10
 .import-label { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0 12px; }
 .import-label input { display: none; }
 .danger-btn { color: var(--red); border-color: rgba(180,72,72,0.45); }
-
-/* 加载指示器 */
-.app-loader {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.5);
-}
-.loader-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* 焦点可见性改进 */
 button:focus-visible,

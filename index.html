@@ -16,6 +16,7 @@
         <p>单线图 · 坐标 · 预制 · 现场模块</p>
       </div>
       <button id="landscapeBtn" class="orientation-btn" type="button" aria-pressed="false" title="切换手机横屏训练">↻ 横屏</button>
+      <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="切换暗色模式" title="切换暗色模式">◐</button>
     </div>
     <nav class="top-tabs" aria-label="页面">
       <button class="top-tab is-active" data-page="trainer">训练器</button>
@@ -30,7 +31,6 @@
       <span><b class="key-north"></b>N 北</span>
       <span><b class="key-elev"></b>EL 高程</span>
     </div>
-    <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="切换暗色模式" title="切换暗色模式">◐</button>
   </header>
 
   <main>
@@ -84,7 +84,7 @@
           <section class="panel-section segments-section">
             <div class="section-heading">
               <h2>路径步骤</h2>
-              <button id="addSegmentBtn" class="command-btn" type="button" title="新增管段 (快捷键 N)" aria-label="新增管段 (快捷键 N)">＋ 新增段</button>
+              <button id="addSegmentBtn" class="command-btn" type="button" title="新增管段 (快捷键 N)" aria-label="新增管段 (快捷键 N)" aria-keyshortcuts="N">＋ 新增段</button>
             </div>
             <div id="segmentList" class="segment-list"></div>
           </section>
@@ -92,7 +92,7 @@
           <section class="panel-section quiz-section">
             <div class="section-heading">
               <h2>坐标练习</h2>
-              <button id="randomBtn" class="command-btn" type="button" title="随机题 (快捷键 R)" aria-label="随机题 (快捷键 R)">随机题</button>
+              <button id="randomBtn" class="command-btn" type="button" title="随机题 (快捷键 R)" aria-label="随机题 (快捷键 R)" aria-keyshortcuts="R">随机题</button>
             </div>
             <div class="input-grid three-col">
               <label>终点 E<input id="answerE" type="number" step="50"></label>
@@ -136,13 +136,13 @@
             </div>
           </div>
           <div class="scene-footer">
-            <button id="prevStepBtn" class="icon-btn" type="button" title="上一段 (快捷键 ←)" aria-label="上一段 (快捷键 ←)">←</button>
+            <button id="prevStepBtn" class="icon-btn" type="button" title="上一段 (快捷键 ←)" aria-label="上一段 (快捷键 ←)" aria-keyshortcuts="ArrowLeft">←</button>
             <div class="step-readout">
               <span id="selectedStepLabel">第 1 段</span>
               <strong id="selectedStepValue">向东 1,200 mm</strong>
             </div>
-            <button id="nextStepBtn" class="icon-btn" type="button" title="下一段 (快捷键 →)" aria-label="下一段 (快捷键 →)">→</button>
-            <button id="fitViewBtn" class="secondary-btn" type="button" title="适配视图 (快捷键 F)" aria-label="适配视图 (快捷键 F)">适配视图</button>
+            <button id="nextStepBtn" class="icon-btn" type="button" title="下一段 (快捷键 →)" aria-label="下一段 (快捷键 →)" aria-keyshortcuts="ArrowRight">→</button>
+            <button id="fitViewBtn" class="secondary-btn" type="button" title="适配视图 (快捷键 F)" aria-label="适配视图 (快捷键 F)" aria-keyshortcuts="F">适配视图</button>
           </div>
         </section>
 
