@@ -6,6 +6,7 @@
   const context = canvas.getContext('2d', { willReadFrequently: true });
   const overlay = get('drawingOverlay');
   const stage = get('drawingStage');
+  const viewport = get('drawingViewport');
   const directions = [
     ['E', '向东 E+'], ['W', '向西 E-'], ['N', '向北 N+'], ['S', '向南 N-'],
     ['U', '上升 EL+'], ['D', '下降 EL-'], ['XYZ', '空间斜管 ΔXYZ']
@@ -21,6 +22,11 @@
   let inferredSegments = [];
   let suggestedLines = [];
   let ocrWorker = null;
+  let fitScale = 1;
+  let zoomRatio = 1;
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
+  let lastOcrPhase = '尚未初始化';
 
   function setStatus(message, progress) {
     get('importStatus').textContent = message;
@@ -32,7 +38,7 @@
   }
 
   function setToolsEnabled(enabled) {
-    ['runOcrBtn', 'autoLineBtn', 'manualTraceBtn', 'clearTraceBtn', 'fitDrawingBtn'].forEach((id) => get(id).disabled = !enabled);
+    ['runOcrBtn', 'autoLineBtn', 'manualTraceBtn', 'clearTraceBtn', 'fitDrawingBtn', 'zoomInDrawingBtn', 'zoomOutDrawingBtn'].forEach((id) => get(id).disabled = !enabled);
     get('undoTraceBtn').disabled = !enabled || tracePoints.length === 0;
     get('extractPdfTextBtn').disabled = !pdfDocument;
   }
@@ -63,6 +69,7 @@
     syncOverlay();
     setToolsEnabled(true);
     setStatus('图纸已载入。可先读取文字，再标记中心线。', 0);
+    requestAnimationFrame(fitDrawing);
   }
 
   async function loadImageFile(file) {
@@ -102,6 +109,7 @@
     syncOverlay();
     setToolsEnabled(true);
     setStatus('PDF页面已载入。优先点击“读取PDF文字”。', 0);
+    requestAnimationFrame(fitDrawing);
   }
 
   async function handleFile(file) {
@@ -144,21 +152,60 @@
     return pdfText;
   }
 
+  function formatError(error) {
+    if (error instanceof Error && error.message) return error.message;
+    if (typeof error === 'string' && error.trim()) return error;
+    if (error && typeof error === 'object') {
+      const detail = error.message || error.error || error.reason || error.data;
+      if (detail) return typeof detail === 'string' ? detail : JSON.stringify(detail);
+      try {
+        const serialized = JSON.stringify(error);
+        if (serialized && serialized !== '{}') return serialized;
+      } catch (serializationError) { /* use fallback */ }
+    }
+    return `Worker未返回错误详情（最后阶段：${lastOcrPhase}）`;
+  }
+
+  function assetUrl(path) {
+    return new URL(path, document.baseURI).href;
+  }
+
+  async function createOcrWorker(workerBlobURL) {
+    const localApp = location.protocol === 'file:' || Boolean(window.plus);
+    lastOcrPhase = workerBlobURL ? 'Blob Worker初始化' : '本地Worker初始化';
+    return window.Tesseract.createWorker(['chi_sim', 'eng'], 1, {
+      workerPath: assetUrl('vendor/tesseract-worker.min.js'),
+      langPath: assetUrl('vendor/tessdata/'),
+      corePath: localApp ? assetUrl('vendor/tesseract-core/tesseract-core-lstm.wasm.js') : assetUrl('vendor/tesseract-core/'),
+      workerBlobURL,
+      cacheMethod: 'none',
+      gzip: true,
+      logger: (message) => {
+        lastOcrPhase = message.status || lastOcrPhase;
+        const percent = Number.isFinite(message.progress) ? Math.round(message.progress * 100) : 5;
+        setStatus(`OCR：${message.status || '处理中'} ${percent}%`, percent);
+      }
+    });
+  }
+
   async function getOcrWorker() {
     if (ocrWorker) return ocrWorker;
     setStatus('正在加载OCR组件...', 3);
     await window.PipeResources.ensureOcr();
     setStatus('首次初始化本地OCR，可能需要10-30秒...', 5);
-    ocrWorker = await window.Tesseract.createWorker(['chi_sim', 'eng'], 1, {
-      workerPath: 'vendor/tesseract-worker.min.js',
-      langPath: 'vendor/tessdata/',
-      corePath: 'vendor/tesseract-core/',
-      logger: (message) => {
-        const percent = Number.isFinite(message.progress) ? Math.round(message.progress * 100) : 5;
-        setStatus(`OCR：${message.status || '处理中'} ${percent}%`, percent);
+    const localApp = location.protocol === 'file:' || Boolean(window.plus);
+    const attempts = localApp ? [false, true] : [true, false];
+    let failure;
+    for (const workerBlobURL of attempts) {
+      try {
+        ocrWorker = await createOcrWorker(workerBlobURL);
+        return ocrWorker;
+      } catch (error) {
+        failure = error;
+        console.warn(`OCR Worker加载失败，准备切换方案（workerBlobURL=${workerBlobURL}）`, error);
       }
-    });
-    return ocrWorker;
+    }
+    throw new Error(`${formatError(failure)}；已尝试两种安卓Worker加载方式`);
   }
 
   async function runOcr() {
@@ -174,7 +221,11 @@
       setStatus(`OCR完成，平均置信度 ${Math.round(result.data.confidence || 0)}%。请人工核对。`, 100);
     } catch (error) {
       console.error(error);
-      setStatus(`OCR失败：${error.message}`, 0);
+      if (ocrWorker) {
+        try { await ocrWorker.terminate(); } catch (terminateError) { /* ignore */ }
+        ocrWorker = null;
+      }
+      setStatus(`OCR失败：${formatError(error)}`, 0);
     } finally {
       get('runOcrBtn').disabled = false;
     }
@@ -209,15 +260,40 @@
     get('ocrCandidateList').innerHTML = candidates.map((item) => `<button type="button" data-target="${item.target}" data-value="${item.value}">${item.label}</button>`).join('');
   }
 
+  function applyDrawingZoom(nextRatio, preserveCenter = true) {
+    if (!canvas.width || !canvas.height) return;
+    const oldWidth = Math.max(1, viewport.getBoundingClientRect().width);
+    const oldHeight = Math.max(1, viewport.getBoundingClientRect().height);
+    const centerX = (stage.scrollLeft + stage.clientWidth / 2) / oldWidth;
+    const centerY = (stage.scrollTop + stage.clientHeight / 2) / oldHeight;
+    zoomRatio = Math.max(0.5, Math.min(8, nextRatio));
+    const width = Math.max(1, Math.round(canvas.width * fitScale * zoomRatio));
+    const height = Math.max(1, Math.round(canvas.height * fitScale * zoomRatio));
+    viewport.style.width = `${width}px`;
+    viewport.style.height = `${height}px`;
+    get('drawingZoomLabel').textContent = `${Math.round(zoomRatio * 100)}%`;
+    syncOverlay();
+    requestAnimationFrame(() => {
+      if (preserveCenter) {
+        stage.scrollLeft = Math.max(0, centerX * width - stage.clientWidth / 2);
+        stage.scrollTop = Math.max(0, centerY * height - stage.clientHeight / 2);
+      }
+    });
+  }
+
+  function fitDrawing() {
+    if (!canvas.width || !canvas.height) return;
+    const availableWidth = Math.max(120, stage.clientWidth - 24);
+    const availableHeight = Math.max(180, stage.clientHeight - 24);
+    fitScale = Math.min(1, availableWidth / canvas.width, availableHeight / canvas.height);
+    zoomRatio = 1;
+    applyDrawingZoom(1, false);
+    requestAnimationFrame(() => stage.scrollTo({ left: 0, top: 0 }));
+  }
+
   function syncOverlay() {
     if (!canvas.width) return;
     requestAnimationFrame(() => {
-      const canvasRect = canvas.getBoundingClientRect();
-      const stageRect = stage.getBoundingClientRect();
-      overlay.style.left = `${canvasRect.left - stageRect.left + stage.scrollLeft}px`;
-      overlay.style.top = `${canvasRect.top - stageRect.top + stage.scrollTop}px`;
-      overlay.style.width = `${canvasRect.width}px`;
-      overlay.style.height = `${canvasRect.height}px`;
       overlay.setAttribute('viewBox', `0 0 ${canvas.width} ${canvas.height}`);
       renderOverlay();
     });
@@ -414,8 +490,27 @@
       if (['dx', 'dy', 'dz'].includes(field)) inferredSegments[index][field] = Number(event.target.value) || 0;
     });
     get('generateImportedModelBtn').addEventListener('click', buildImportedModel);
-    get('fitDrawingBtn').addEventListener('click', () => { stage.scrollTo({ left: 0, top: 0, behavior: 'smooth' }); syncOverlay(); });
-    window.addEventListener('resize', syncOverlay);
+    get('fitDrawingBtn').addEventListener('click', fitDrawing);
+    get('zoomInDrawingBtn').addEventListener('click', () => applyDrawingZoom(zoomRatio * 1.5));
+    get('zoomOutDrawingBtn').addEventListener('click', () => applyDrawingZoom(zoomRatio / 1.5));
+    stage.addEventListener('wheel', (event) => {
+      if (!event.ctrlKey || !canvas.width) return;
+      event.preventDefault();
+      applyDrawingZoom(zoomRatio * (event.deltaY < 0 ? 1.2 : 1 / 1.2));
+    }, { passive: false });
+    stage.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 2) return;
+      pinchStartDistance = Math.hypot(event.touches[0].clientX - event.touches[1].clientX, event.touches[0].clientY - event.touches[1].clientY);
+      pinchStartZoom = zoomRatio;
+    }, { passive: true });
+    stage.addEventListener('touchmove', (event) => {
+      if (event.touches.length !== 2 || !pinchStartDistance) return;
+      event.preventDefault();
+      const distance = Math.hypot(event.touches[0].clientX - event.touches[1].clientX, event.touches[0].clientY - event.touches[1].clientY);
+      applyDrawingZoom(pinchStartZoom * distance / pinchStartDistance);
+    }, { passive: false });
+    stage.addEventListener('touchend', (event) => { if (event.touches.length < 2) pinchStartDistance = 0; }, { passive: true });
+    window.addEventListener('resize', () => { if (canvas.width) fitDrawing(); });
     window.addEventListener('pagehide', () => { if (ocrWorker) ocrWorker.terminate(); if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl); });
   }
 

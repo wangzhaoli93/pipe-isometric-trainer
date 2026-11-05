@@ -6,7 +6,7 @@
   <title>管线空间训练器</title>
   <link rel="icon" href="icon-512.png">
   <link rel="stylesheet" href="styles.css?v=1.18.0">
-  <link rel="stylesheet" href="drawing-import.css?v=1.18.0">
+  <link rel="stylesheet" href="drawing-import.css?v=1.18.1">
   <link rel="stylesheet" href="spatial-training.css?v=1.18.0">
   <link rel="stylesheet" href="reference-library.css?v=1.18.0">
   <link rel="stylesheet" href="field-tools.css?v=1.18.0">
@@ -451,8 +451,8 @@
           </section>
         </aside>
         <main class="drawing-stage-panel">
-          <div class="drawing-stage-toolbar"><span id="drawingStageHint">上传后在图上标记中心线</span><button id="fitDrawingBtn" type="button" disabled>适配图纸</button></div>
-          <div id="drawingStage" class="drawing-stage"><canvas id="drawingCanvas"></canvas><svg id="drawingOverlay" aria-label="中心线标记"></svg><div class="drawing-empty">尚未上传图纸</div></div>
+          <div class="drawing-stage-toolbar"><span id="drawingStageHint">上传后在图上标记中心线</span><div class="drawing-zoom-controls"><button id="zoomOutDrawingBtn" type="button" disabled aria-label="缩小图纸">−</button><output id="drawingZoomLabel">100%</output><button id="zoomInDrawingBtn" type="button" disabled aria-label="放大图纸">＋</button><button id="fitDrawingBtn" type="button" disabled>适配图纸</button></div></div>
+          <div id="drawingStage" class="drawing-stage"><div id="drawingViewport" class="drawing-viewport"><canvas id="drawingCanvas"></canvas><svg id="drawingOverlay" aria-label="中心线标记"></svg></div><div class="drawing-empty">尚未上传图纸</div></div>
         </main>
         <aside class="import-segments-panel">
           <div class="section-heading"><h3>路径确认</h3><span id="importPointCount">0个点</span></div>
@@ -1479,7 +1479,7 @@
   <script src="vendor/expr-eval.min.js"></script>
   <script src="resource-loader.js?v=1.18.0"></script>
   <script src="app.js?v=1.18.0"></script>
-  <script src="drawing-import.js?v=1.18.0"></script>
+  <script src="drawing-import.js?v=1.18.1"></script>
   <script src="exam-tools.js?v=1.18.0"></script>
   <script src="spatial-training.js?v=1.18.0"></script>
   <script src="reference-library.js?v=1.18.0"></script>
