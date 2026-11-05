@@ -27,6 +27,8 @@
   let pinchStartDistance = 0;
   let pinchStartZoom = 1;
   let lastOcrPhase = '尚未初始化';
+  let bundledAssetsPromise = null;
+  const ocrAssetObjectUrls = [];
 
   function setStatus(message, progress) {
     get('importStatus').textContent = message;
@@ -170,6 +172,97 @@
     return new URL(path, document.baseURI).href;
   }
 
+  function plusIoAvailable() {
+    return Boolean(window.plus?.io?.resolveLocalFileSystemURL && window.plus?.io?.FileReader);
+  }
+
+  function plusReadAsset(path, mode) {
+    return new Promise((resolve, reject) => {
+      window.plus.io.resolveLocalFileSystemURL(`_www/${path}`, (entry) => {
+        entry.file((file) => {
+          const reader = new window.plus.io.FileReader();
+          reader.onloadend = (event) => resolve(event.target.result);
+          reader.onerror = (event) => reject(new Error(event?.target?.error?.message || `读取${path}失败`));
+          if (mode === 'text') reader.readAsText(file, 'utf-8');
+          else reader.readAsDataURL(file);
+        }, (error) => reject(new Error(error?.message || `打开${path}失败`)));
+      }, (error) => reject(new Error(error?.message || `定位${path}失败`)));
+    });
+  }
+
+  function dataUrlToBytes(dataUrl) {
+    const base64 = String(dataUrl).split(',')[1]?.replace(/\s/g, '');
+    if (!base64) throw new Error('本地语言包没有返回有效Base64数据');
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+
+  async function readBundledAsset(path, mode) {
+    if (plusIoAvailable()) {
+      const result = await plusReadAsset(path, mode);
+      return mode === 'text' ? result : dataUrlToBytes(result);
+    }
+    const response = await fetch(assetUrl(path));
+    if (!response.ok) throw new Error(`读取${path}失败（${response.status}）`);
+    return mode === 'text' ? response.text() : new Uint8Array(await response.arrayBuffer());
+  }
+
+  async function prepareBundledOcrAssets() {
+    if (bundledAssetsPromise) return bundledAssetsPromise;
+    bundledAssetsPromise = (async () => {
+      lastOcrPhase = '读取本地Worker、Core和语言包';
+      setStatus('OCR：正在读取本地Worker、Core和语言包 5%', 5);
+      const [workerSource, coreSource, chineseData, englishData] = await Promise.all([
+        readBundledAsset('vendor/tesseract-worker.min.js', 'text'),
+        readBundledAsset('vendor/tesseract-core/tesseract-core-lstm.wasm.js', 'text'),
+        readBundledAsset('vendor/tessdata/chi_sim.traineddata.gz', 'bytes'),
+        readBundledAsset('vendor/tessdata/eng.traineddata.gz', 'bytes')
+      ]);
+      const initializationNeedle = '"string"==typeof t?t:t.data})).join("+")';
+      if (!workerSource.includes(initializationNeedle)) throw new Error('本地OCR Worker版本与内存语言补丁不匹配');
+      const patchedWorkerSource = workerSource.replace(initializationNeedle, '"string"==typeof t?t:t.code})).join("+")');
+      const workerUrl = URL.createObjectURL(new Blob([patchedWorkerSource], { type: 'application/javascript' }));
+      const coreObjectUrl = URL.createObjectURL(new Blob([coreSource], { type: 'application/javascript' }));
+      const coreUrl = `${coreObjectUrl}#tesseract-core-lstm.wasm.js`;
+      ocrAssetObjectUrls.push(workerUrl, coreObjectUrl);
+      return {
+        workerUrl,
+        coreUrl,
+        languages: [
+          { code: 'chi_sim', data: chineseData },
+          { code: 'eng', data: englishData }
+        ]
+      };
+    })().catch((error) => {
+      bundledAssetsPromise = null;
+      throw error;
+    });
+    return bundledAssetsPromise;
+  }
+
+  function ocrLogger(message) {
+    lastOcrPhase = message.status || lastOcrPhase;
+    const percent = Number.isFinite(message.progress) ? Math.round(message.progress * 100) : 5;
+    setStatus(`OCR：${message.status || '处理中'} ${percent}%`, percent);
+  }
+
+  async function createBundledOcrWorker() {
+    const assets = await prepareBundledOcrAssets();
+    lastOcrPhase = '启动内存OCR Worker';
+    const worker = await window.Tesseract.createWorker(assets.languages, 1, {
+      workerPath: assets.workerUrl,
+      corePath: assets.coreUrl,
+      workerBlobURL: false,
+      cacheMethod: 'none',
+      gzip: true,
+      logger: ocrLogger
+    });
+    bundledAssetsPromise = null;
+    return worker;
+  }
+
   async function createOcrWorker(workerBlobURL) {
     const localApp = location.protocol === 'file:' || Boolean(window.plus);
     lastOcrPhase = workerBlobURL ? 'Blob Worker初始化' : '本地Worker初始化';
@@ -180,11 +273,7 @@
       workerBlobURL,
       cacheMethod: 'none',
       gzip: true,
-      logger: (message) => {
-        lastOcrPhase = message.status || lastOcrPhase;
-        const percent = Number.isFinite(message.progress) ? Math.round(message.progress * 100) : 5;
-        setStatus(`OCR：${message.status || '处理中'} ${percent}%`, percent);
-      }
+      logger: ocrLogger
     });
   }
 
@@ -194,8 +283,18 @@
     await window.PipeResources.ensureOcr();
     setStatus('首次初始化本地OCR，可能需要10-30秒...', 5);
     const localApp = location.protocol === 'file:' || Boolean(window.plus);
-    const attempts = localApp ? [false, true] : [true, false];
+    const useBundledAssets = plusIoAvailable() || Boolean(window.PipeOcrDebugUseBlobAssets);
     let failure;
+    if (useBundledAssets) {
+      try {
+        ocrWorker = await createBundledOcrWorker();
+        return ocrWorker;
+      } catch (error) {
+        failure = error;
+        console.warn('内存OCR资源方案失败，准备尝试路径加载方案', error);
+      }
+    }
+    const attempts = localApp ? [false, true] : [true, false];
     for (const workerBlobURL of attempts) {
       try {
         ocrWorker = await createOcrWorker(workerBlobURL);
@@ -205,7 +304,7 @@
         console.warn(`OCR Worker加载失败，准备切换方案（workerBlobURL=${workerBlobURL}）`, error);
       }
     }
-    throw new Error(`${formatError(failure)}；已尝试两种安卓Worker加载方式`);
+    throw new Error(`${formatError(failure)}；已尝试内存资源和两种安卓Worker加载方式`);
   }
 
   async function runOcr() {
@@ -511,7 +610,11 @@
     }, { passive: false });
     stage.addEventListener('touchend', (event) => { if (event.touches.length < 2) pinchStartDistance = 0; }, { passive: true });
     window.addEventListener('resize', () => { if (canvas.width) fitDrawing(); });
-    window.addEventListener('pagehide', () => { if (ocrWorker) ocrWorker.terminate(); if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl); });
+    window.addEventListener('pagehide', () => {
+      if (ocrWorker) ocrWorker.terminate();
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+      ocrAssetObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    });
   }
 
   initEvents();
