@@ -361,6 +361,7 @@
 
   let state = JSON.parse(JSON.stringify(presets.rise));
   let activePreset = 'rise';
+  let externalCaseState = null;
   let selectedSegment = 0;
   let quizActive = false;
   let activeTrainingTrack = 'petroleum';
@@ -383,6 +384,17 @@
   let quickCalcHistory = [];
   let quickCalcParser = null;
   let storageWarningShown = false;
+  let threeInitialized = false;
+  let threeInitPromise = null;
+  let activePage = 'home';
+  let navigationHistory = ['home'];
+  let lastBackPress = 0;
+  let undoStack = [];
+  let redoStack = [];
+  let lastStableTrainerSnapshot = null;
+  let trainerHistoryPending = false;
+  let trainerHistoryTimer = null;
+  let restoringTrainerState = false;
 
   const els = {
     list: document.getElementById('segmentList'),
@@ -620,6 +632,7 @@
       writeJson(profileKey('pipe-wrong-questions'), wrongQuestionRecords);
       renderProfilePage();
     }
+    window.dispatchEvent(new CustomEvent('pipe-learning-mistake', { detail: { id, label, destination, time: new Date().toISOString() } }));
   }
 
   function getPoints() {
@@ -710,6 +723,7 @@
   }
 
   function initThree() {
+    if (threeInitialized) return;
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xedf0f1);
     camera = new THREE.PerspectiveCamera(42, 1, 0.01, 200);
@@ -765,9 +779,30 @@
       renderer.dispose();
     });
     markDirty();
+    threeInitialized = true;
+  }
+
+  async function ensureThreeReady() {
+    if (threeInitialized) return;
+    if (threeInitPromise) return threeInitPromise;
+    const loading = document.getElementById('threeLoading');
+    loading.hidden = false;
+    threeInitPromise = window.PipeResources.ensureThree().then(() => {
+      initThree();
+      loading.hidden = true;
+      rebuildThree();
+      resizeThree();
+      fitCamera();
+    }).catch((error) => {
+      loading.innerHTML = `<strong>3D引擎载入失败</strong><span>${escapeHtml(error.message)}</span>`;
+      threeInitPromise = null;
+      throw error;
+    });
+    return threeInitPromise;
   }
 
   function resizeThree() {
+    if (!renderer || !camera) return;
     const width = Math.max(1, els.viewport.clientWidth);
     const height = Math.max(1, els.viewport.clientHeight);
     renderer.setSize(width, height, false);
@@ -804,6 +839,7 @@
   }
 
   function rebuildThree() {
+    if (!threeInitialized || !pipeGroup || !shadowGroup) return;
     clearGroup(pipeGroup);
     clearGroup(shadowGroup);
     pipeMeshes = [];
@@ -862,6 +898,7 @@
   }
 
   function fitCamera(view = currentView) {
+    if (!threeInitialized || !camera || !controls) return;
     const box = new THREE.Box3().setFromPoints(pointVectors.length ? pointVectors : [new THREE.Vector3()]);
     const center = box.getCenter(new THREE.Vector3());
     const size = Math.max(box.getSize(new THREE.Vector3()).length(), 2.5);
@@ -1008,6 +1045,7 @@
     renderCoordinateTable();
     updateStepReadout();
     els.quizCover.hidden = !quizActive;
+    trackTrainerMutation();
   }
 
   function updateAll(shouldFit = false) {
@@ -1018,11 +1056,18 @@
     updateStepReadout();
     els.quizCover.hidden = !quizActive;
     if (shouldFit) fitCamera();
+    trackTrainerMutation();
   }
 
   function updateCaseFavoriteButton() {
     const button = document.getElementById('caseFavoriteBtn');
     if (!button) return;
+    button.disabled = activePreset === 'external';
+    if (activePreset === 'external') {
+      button.textContent = '☆';
+      button.title = '导入案例暂不加入内置收藏';
+      return;
+    }
     const favorite = favoritePresets.has(activePreset);
     button.classList.toggle('is-active', favorite);
     button.textContent = favorite ? '★' : '☆';
@@ -1069,6 +1114,147 @@
     document.querySelectorAll('.preset-btn').forEach((btn) => btn.classList.toggle('is-active', btn.dataset.preset === name));
     updateAll(true);
     updateCaseFavoriteButton();
+  }
+
+  function loadExternalCase(payload) {
+    const segments = Array.isArray(payload?.segments) ? payload.segments.filter((segment) => segment && (segment.dir === 'XYZ' || DIRECTIONS[segment.dir])) : [];
+    if (!segments.length) throw new Error('至少需要一段已确认的管线路径');
+    externalCaseState = {
+      start: [n(payload.start?.[0]), n(payload.start?.[1]), n(payload.start?.[2])],
+      dn: Math.max(1, n(payload.dn, 100)),
+      segments: segments.map((segment) => segment.dir === 'XYZ'
+        ? { dir: 'XYZ', dx: n(segment.dx), dy: n(segment.dy), dz: n(segment.dz) }
+        : { dir: segment.dir, length: Math.max(1, n(segment.length, 500)) })
+    };
+    state = copyPresetObject(externalCaseState);
+    activePreset = 'external';
+    selectedSegment = 0;
+    quizActive = false;
+    syncHeaderInputs();
+    document.querySelectorAll('.preset-btn').forEach((button) => button.classList.remove('is-active'));
+    document.querySelector('[data-page="trainer"]')?.click();
+    updateAll(true);
+    updateCaseFavoriteButton();
+  }
+
+  function copyPresetObject(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function createTrainerSnapshot() {
+    return { version: 1, state: copyPresetObject(state), activePreset, externalCaseState: externalCaseState ? copyPresetObject(externalCaseState) : null };
+  }
+
+  function trainerSnapshotSignature(snapshot = createTrainerSnapshot()) {
+    return JSON.stringify({ state: snapshot.state, activePreset: snapshot.activePreset, externalCaseState: snapshot.externalCaseState });
+  }
+
+  function trainerDraftKey(profileId = activeProfileId || 'default') {
+    return `pipe-trainer-draft:${profileId}`;
+  }
+
+  function validTrainerSnapshot(snapshot) {
+    return snapshot && snapshot.version === 1 && snapshot.state && Array.isArray(snapshot.state.start) && snapshot.state.start.length === 3 && Number.isFinite(Number(snapshot.state.dn)) && Array.isArray(snapshot.state.segments) && snapshot.state.segments.length > 0 && snapshot.state.segments.every((segment) => segment && (segment.dir === 'XYZ' || DIRECTIONS[segment.dir]));
+  }
+
+  function saveTrainerDraft(snapshot = createTrainerSnapshot()) {
+    if (!validTrainerSnapshot(snapshot)) return;
+    writeJson(trainerDraftKey(), { ...snapshot, savedAt: new Date().toISOString() });
+  }
+
+  function updateHistoryButtons() {
+    document.getElementById('undoTrainerBtn').disabled = undoStack.length === 0;
+    document.getElementById('redoTrainerBtn').disabled = redoStack.length === 0;
+  }
+
+  function finalizeTrainerHistory() {
+    clearTimeout(trainerHistoryTimer);
+    trainerHistoryTimer = null;
+    lastStableTrainerSnapshot = createTrainerSnapshot();
+    trainerHistoryPending = false;
+    saveTrainerDraft(lastStableTrainerSnapshot);
+    updateHistoryButtons();
+  }
+
+  function trackTrainerMutation() {
+    if (restoringTrainerState) return;
+    const current = createTrainerSnapshot();
+    if (!lastStableTrainerSnapshot) {
+      lastStableTrainerSnapshot = current;
+      saveTrainerDraft(current);
+      return;
+    }
+    if (trainerSnapshotSignature(current) === trainerSnapshotSignature(lastStableTrainerSnapshot)) return;
+    if (!trainerHistoryPending) {
+      undoStack.push(copyPresetObject(lastStableTrainerSnapshot));
+      undoStack = undoStack.slice(-50);
+      redoStack = [];
+      trainerHistoryPending = true;
+      updateHistoryButtons();
+    }
+    clearTimeout(trainerHistoryTimer);
+    trainerHistoryTimer = setTimeout(finalizeTrainerHistory, 400);
+  }
+
+  function applyTrainerSnapshot(snapshot, message = '') {
+    if (!validTrainerSnapshot(snapshot)) return false;
+    restoringTrainerState = true;
+    state = copyPresetObject(snapshot.state);
+    activePreset = snapshot.activePreset || 'external';
+    externalCaseState = snapshot.externalCaseState ? copyPresetObject(snapshot.externalCaseState) : null;
+    selectedSegment = Math.min(selectedSegment, state.segments.length - 1);
+    quizActive = false;
+    syncHeaderInputs();
+    document.querySelectorAll('.preset-btn').forEach((button) => button.classList.toggle('is-active', button.dataset.preset === activePreset));
+    updateAll(true);
+    updateCaseFavoriteButton();
+    restoringTrainerState = false;
+    lastStableTrainerSnapshot = createTrainerSnapshot();
+    saveTrainerDraft(lastStableTrainerSnapshot);
+    if (message) {
+      els.quizMessage.textContent = message;
+      els.quizMessage.className = 'status-line is-success';
+    }
+    updateHistoryButtons();
+    return true;
+  }
+
+  function restoreTrainerDraft(showMessage = true) {
+    const draft = readJson(trainerDraftKey(), null);
+    undoStack = [];
+    redoStack = [];
+    trainerHistoryPending = false;
+    clearTimeout(trainerHistoryTimer);
+    if (validTrainerSnapshot(draft)) return applyTrainerSnapshot(draft, showMessage ? '已恢复上次训练草稿。' : '');
+    restoringTrainerState = true;
+    state = copyPresetObject(presets.rise);
+    activePreset = 'rise';
+    externalCaseState = null;
+    selectedSegment = 0;
+    quizActive = false;
+    syncHeaderInputs();
+    document.querySelectorAll('.preset-btn').forEach((button) => button.classList.toggle('is-active', button.dataset.preset === activePreset));
+    updateAll(false);
+    updateCaseFavoriteButton();
+    restoringTrainerState = false;
+    lastStableTrainerSnapshot = createTrainerSnapshot();
+    updateHistoryButtons();
+    return false;
+  }
+
+  function undoTrainer() {
+    if (!undoStack.length) return;
+    if (trainerHistoryPending) finalizeTrainerHistory();
+    const previous = undoStack.pop();
+    redoStack.push(createTrainerSnapshot());
+    applyTrainerSnapshot(previous, '已撤销上一步。');
+  }
+
+  function redoTrainer() {
+    if (!redoStack.length) return;
+    const next = redoStack.pop();
+    undoStack.push(createTrainerSnapshot());
+    applyTrainerSnapshot(next, '已重做。');
   }
 
   function randomChallenge() {
@@ -1243,7 +1429,7 @@
   }
 
   function profileDataBases() {
-    return ['pipe-route-progress', 'pipe-module-progress', 'pipe-favorite-presets', 'pipe-wrong-questions', 'pipe-quick-history'];
+    return ['pipe-route-progress', 'pipe-module-progress', 'pipe-favorite-presets', 'pipe-wrong-questions', 'pipe-quick-history', 'pipe-spatial-training-v1', 'pipe-micro-lessons', 'pipe-home-workbench', 'pipe-trainer-draft', 'pipe-learning-coach', 'pipe-field-records'];
   }
 
   function renderProfilePage() {
@@ -1265,6 +1451,7 @@
 
   function applyActiveProfileState() {
     loadProfileVariables();
+    restoreTrainerDraft(false);
     const route = readJson(profileKey('pipe-route-progress'), []);
     document.querySelectorAll('[data-task]').forEach((checkbox) => checkbox.checked = Array.isArray(route) && route.includes(checkbox.dataset.task));
     saveRouteProgress(false);
@@ -1274,6 +1461,7 @@
     applyCaseFilter(activeCaseFilter);
     renderQuickHistory();
     renderProfilePage();
+    window.dispatchEvent(new CustomEvent('pipe-profile-change', { detail: { profileId: activeProfileId } }));
   }
 
   function switchLearnerProfile(profileId) {
@@ -1287,7 +1475,14 @@
     const data = {};
     learnerProfiles.forEach((profile) => {
       data[profile.id] = {};
-      profileDataBases().forEach((base) => data[profile.id][base] = readJson(profileKey(base, profile.id), []));
+      profileDataBases().forEach((base) => {
+        const fallback = base === 'pipe-spatial-training-v1' ? { completed: {}, wrong: [] }
+          : base === 'pipe-home-workbench' ? { projects: [{ id: 'default', name: '我的现场' }], activeProjectId: 'default', recents: [], searchHistory: [] }
+            : base === 'pipe-trainer-draft' ? null
+            : base === 'pipe-learning-coach' ? { version: 1, assessment: null, mistakes: [] }
+            : [];
+        data[profile.id][base] = readJson(profileKey(base, profile.id), fallback);
+      });
     });
     const payload = { version: 1, exportedAt: new Date().toISOString(), profiles: learnerProfiles, activeProfileId, data };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1321,8 +1516,26 @@
 
         const staged = new Map();
         importedProfiles.forEach((profile) => profileDataBases().forEach((base) => {
-          const value = payload.data[profile.id]?.[base] ?? [];
-          if (!Array.isArray(value)) throw new Error(`${profile.name} 的 ${base} 数据格式不正确`);
+          const fallback = base === 'pipe-spatial-training-v1' ? { completed: {}, wrong: [] }
+            : base === 'pipe-home-workbench' ? { projects: [{ id: 'default', name: '我的现场' }], activeProjectId: 'default', recents: [], searchHistory: [] }
+              : base === 'pipe-trainer-draft' ? null
+              : base === 'pipe-learning-coach' ? { version: 1, assessment: null, mistakes: [] }
+              : [];
+          let value = payload.data[profile.id]?.[base] ?? fallback;
+          if (base === 'pipe-spatial-training-v1') {
+            if (Array.isArray(value) && value.length === 0) value = fallback;
+            const validSpatial = value && typeof value === 'object' && !Array.isArray(value) && value.completed && typeof value.completed === 'object' && !Array.isArray(value.completed) && Array.isArray(value.wrong);
+            if (!validSpatial) throw new Error(`${profile.name} 的空间闯关数据格式不正确`);
+          } else if (base === 'pipe-home-workbench') {
+            if (Array.isArray(value) && value.length === 0) value = fallback;
+            const validWorkbench = value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.projects) && typeof value.activeProjectId === 'string' && Array.isArray(value.recents) && Array.isArray(value.searchHistory);
+            if (!validWorkbench) throw new Error(`${profile.name} 的项目本数据格式不正确`);
+          } else if (base === 'pipe-trainer-draft') {
+            if (value !== null && !validTrainerSnapshot(value)) throw new Error(`${profile.name} 的训练草稿格式不正确`);
+          } else if (base === 'pipe-learning-coach') {
+            const validCoach = value && value.version === 1 && Array.isArray(value.mistakes) && (value.assessment === null || typeof value.assessment === 'object');
+            if (!validCoach) throw new Error(`${profile.name} 的学习教练数据格式不正确`);
+          } else if (!Array.isArray(value)) throw new Error(`${profile.name} 的 ${base} 数据格式不正确`);
           staged.set(profileKey(base, profile.id), JSON.stringify(value));
         }));
         const importedActiveId = importedProfiles.some((profile) => profile.id === payload.activeProfileId) ? payload.activeProfileId : importedProfiles[0].id;
@@ -1442,6 +1655,340 @@
       <line class="diagram-main" x1="${sideOriginX}" y1="${sideOriginY}" x2="${sideEndX}" y2="${sideEndY}"/><circle class="diagram-point" cx="${sideOriginX}" cy="${sideOriginY}" r="5"/><circle class="diagram-point" cx="${sideEndX}" cy="${sideEndY}" r="5"/>
       <text class="diagram-muted" x="${(sideOriginX + sideEndX) / 2 - 28}" y="${sideOriginY + 20}">平面 ${calcNumber(planOffset, 0)}</text><text class="diagram-muted" x="${Math.min(550, sideEndX + 7)}" y="${(sideOriginY + sideEndY) / 2}">EL ${calcNumber(deltaZ, 0)}</text>
     `;
+  }
+
+  const triangleLabDefaults = {
+    legs: [800, 600, 0],
+    'hyp-rise': [1000, 600, 0],
+    'angle-run': [30, 1000, 0],
+    'angle-rise': [45, 500, 0],
+    spatial: [1200, 900, 600]
+  };
+
+  const triangleLabExamples = {
+    345: { mode: 'legs', values: [800, 600, 0] },
+    '45-offset': { mode: 'angle-rise', values: [45, 500, 0] },
+    '30-run': { mode: 'angle-run', values: [30, 1000, 0] },
+    slope: { mode: 'legs', values: [6000, 120, 0] },
+    spatial: { mode: 'spatial', values: [1200, 900, 600] }
+  };
+
+  let trianglePracticeProblem = null;
+
+  function setTriangleLabMode(mode, values = triangleLabDefaults[mode]) {
+    const labels = {
+      legs: ['水平边 A mm', '高差 B mm'],
+      'hyp-rise': ['斜边 C mm', '高差 B mm'],
+      'angle-run': ['斜管角度 θ °', '水平边 A mm'],
+      'angle-rise': ['斜管角度 θ °', '高差 B mm'],
+      spatial: ['ΔE 东西差 mm', 'ΔN 南北差 mm', 'ΔEL 高差 mm']
+    };
+    const inputLabels = labels[mode] || labels.legs;
+    document.getElementById('triangleLabMode').value = mode;
+    document.getElementById('triangleLabValue1Label').textContent = inputLabels[0];
+    document.getElementById('triangleLabValue2Label').textContent = inputLabels[1];
+    document.getElementById('triangleLabValue3Label').textContent = inputLabels[2] || 'ΔEL 高差 mm';
+    document.getElementById('triangleLabValue3Wrap').hidden = mode !== 'spatial';
+    ['triangleLabValue1', 'triangleLabValue2', 'triangleLabValue3'].forEach((id, index) => {
+      const input = document.getElementById(id);
+      input.value = values[index] ?? 0;
+      input.step = mode.startsWith('angle') && index === 0 ? '0.1' : '10';
+    });
+    updateTriangleLab();
+  }
+
+  function renderTriangleLabDiagram({ mode, run, rise, hypotenuse, angle, extra, raw }) {
+    const svg = document.getElementById('triangleLabDiagram');
+    if (mode === 'spatial') {
+      const [deltaE, deltaN, deltaZ] = raw;
+      const planScale = 165 / Math.max(Math.abs(deltaE), Math.abs(deltaN), 1);
+      const planX = 65, planY = 285;
+      const eastX = planX + Math.abs(deltaE) * planScale;
+      const northY = planY - Math.abs(deltaN) * planScale;
+      const elevationScale = 155 / Math.max(run, Math.abs(deltaZ), 1);
+      const elevationX = 365, elevationY = 285;
+      const endX = elevationX + run * elevationScale;
+      const endY = elevationY - Math.abs(deltaZ) * elevationScale;
+      svg.innerHTML = `
+        <title>空间偏移两次勾股分解</title><desc>先用东西差和南北差求平面偏移，再用平面偏移与高差求空间真长</desc>
+        <text x="28" y="30">第一步：平面三角形</text><text x="330" y="30">第二步：立面三角形</text>
+        <line class="diagram-axis" x1="${planX}" y1="${planY}" x2="${eastX}" y2="${planY}"/>
+        <line class="diagram-grid" x1="${eastX}" y1="${planY}" x2="${eastX}" y2="${northY}"/>
+        <line class="diagram-main" x1="${planX}" y1="${planY}" x2="${eastX}" y2="${northY}"/>
+        <path class="diagram-right-angle" d="M ${eastX - 16} ${planY} L ${eastX - 16} ${planY - 16} L ${eastX} ${planY - 16}"/>
+        <text class="diagram-muted" x="${(planX + eastX) / 2 - 25}" y="${planY + 22}">ΔE ${calcNumber(deltaE, 0)}</text>
+        <text class="diagram-muted" x="${eastX + 6}" y="${(planY + northY) / 2}">ΔN ${calcNumber(deltaN, 0)}</text>
+        <text x="${(planX + eastX) / 2 - 32}" y="${(planY + northY) / 2 - 10}">P ${calcNumber(run, 1)}</text>
+        <line class="diagram-axis" x1="${elevationX}" y1="${elevationY}" x2="${endX}" y2="${elevationY}"/>
+        <line class="diagram-grid" x1="${endX}" y1="${elevationY}" x2="${endX}" y2="${endY}"/>
+        <line class="diagram-main" x1="${elevationX}" y1="${elevationY}" x2="${endX}" y2="${endY}"/>
+        <path class="diagram-right-angle" d="M ${endX - 16} ${elevationY} L ${endX - 16} ${elevationY - 16} L ${endX} ${elevationY - 16}"/>
+        <text class="diagram-muted" x="${(elevationX + endX) / 2 - 30}" y="${elevationY + 22}">P ${calcNumber(run, 1)}</text>
+        <text class="diagram-muted" x="${Math.min(575, endX + 6)}" y="${(elevationY + endY) / 2}">EL ${calcNumber(deltaZ, 0)}</text>
+        <text x="${(elevationX + endX) / 2 - 30}" y="${(elevationY + endY) / 2 - 10}">C ${calcNumber(hypotenuse, 1)}</text>
+        <text class="diagram-angle-label" x="${elevationX + 40}" y="${elevationY - 15}">θ ${calcNumber(angle, 2)}°</text>
+        <text class="diagram-muted" x="28" y="338">平面方向 ${extra}</text>`;
+      return;
+    }
+
+    const startX = 78, baseY = 292;
+    const scale = Math.min(420 / Math.max(run, 1), 210 / Math.max(rise, 1));
+    const endX = startX + Math.max(75, run * scale);
+    const topY = baseY - Math.max(rise > 0 ? 48 : 0, rise * scale);
+    const visualAngle = Math.atan2(Math.max(rise, 0), Math.max(run, 0.0001));
+    const arcRadius = 46;
+    const arcEndX = startX + arcRadius * Math.cos(visualAngle);
+    const arcEndY = baseY - arcRadius * Math.sin(visualAngle);
+    svg.innerHTML = `
+      <title>管道直角三角形</title><desc>水平边A、高差B和斜管中心线C组成直角三角形，显示斜管与水平线夹角</desc>
+      <text x="28" y="30">直角三角形 · 中心线尺寸</text>
+      <line class="diagram-axis" x1="${startX}" y1="${baseY}" x2="${endX}" y2="${baseY}"/>
+      <line class="diagram-grid" x1="${endX}" y1="${baseY}" x2="${endX}" y2="${topY}"/>
+      <line class="diagram-main" x1="${startX}" y1="${baseY}" x2="${endX}" y2="${topY}"/>
+      <path class="diagram-right-angle" d="M ${endX - 18} ${baseY} L ${endX - 18} ${baseY - 18} L ${endX} ${baseY - 18}"/>
+      ${angle > 0 ? `<path class="diagram-angle-arc" d="M ${startX + arcRadius} ${baseY} A ${arcRadius} ${arcRadius} 0 0 0 ${arcEndX} ${arcEndY}"/>` : ''}
+      <circle class="diagram-point" cx="${startX}" cy="${baseY}" r="5"/><circle class="diagram-point" cx="${endX}" cy="${topY}" r="5"/>
+      <text class="diagram-muted" x="${(startX + endX) / 2 - 38}" y="${baseY + 27}">A = ${calcNumber(run, 1)} mm</text>
+      <text class="diagram-muted" x="${Math.min(540, endX + 8)}" y="${(baseY + topY) / 2}">B = ${calcNumber(rise, 1)} mm</text>
+      <text x="${(startX + endX) / 2 - 40}" y="${(baseY + topY) / 2 - 12}">C = ${calcNumber(hypotenuse, 1)} mm</text>
+      <text class="diagram-angle-label" x="${startX + 54}" y="${baseY - 16}">θ = ${calcNumber(angle, 2)}°</text>
+      <text class="diagram-muted" x="28" y="340">另一锐角 = ${calcNumber(90 - angle, 2)}° · θ 从水平线量起</text>`;
+  }
+
+  function updateTriangleLab() {
+    const mode = document.getElementById('triangleLabMode').value;
+    const value1 = calcValue('triangleLabValue1');
+    const value2 = calcValue('triangleLabValue2');
+    const value3 = calcValue('triangleLabValue3');
+    const error = document.getElementById('triangleLabError');
+    let run = 0, rise = 0, hypotenuse = 0, angle = 0, extra = '', steps = [], valid = true;
+    error.textContent = '';
+
+    if (mode === 'legs') {
+      run = Math.abs(value1); rise = Math.abs(value2);
+      if (run <= 0) { error.textContent = '水平边必须大于0。'; valid = false; }
+      hypotenuse = Math.hypot(run, rise);
+      angle = Math.atan2(rise, run) * 180 / Math.PI;
+      steps = [
+        `勾股：C = √(A² + B²) = √(${calcNumber(run, 1)}² + ${calcNumber(rise, 1)}²) = ${calcNumber(hypotenuse, 1)} mm`,
+        `求角：θ = atan(B ÷ A) = atan(${calcNumber(rise, 1)} ÷ ${calcNumber(run, 1)}) = ${calcNumber(angle, 2)}°`,
+        `复核：A² + B² = ${calcNumber(run * run + rise * rise, 1)}，C² = ${calcNumber(hypotenuse * hypotenuse, 1)}`
+      ];
+    } else if (mode === 'hyp-rise') {
+      hypotenuse = Math.abs(value1); rise = Math.abs(value2);
+      if (hypotenuse <= 0 || rise >= hypotenuse) { error.textContent = '斜边必须大于0，并且必须大于高差。'; valid = false; }
+      run = Math.sqrt(Math.max(0, hypotenuse * hypotenuse - rise * rise));
+      angle = hypotenuse > 0 ? Math.asin(Math.min(1, rise / hypotenuse)) * 180 / Math.PI : 0;
+      steps = [
+        `反勾股：A = √(C² - B²) = √(${calcNumber(hypotenuse, 1)}² - ${calcNumber(rise, 1)}²) = ${calcNumber(run, 1)} mm`,
+        `求角：θ = asin(B ÷ C) = asin(${calcNumber(rise, 1)} ÷ ${calcNumber(hypotenuse, 1)}) = ${calcNumber(angle, 2)}°`
+      ];
+    } else if (mode === 'angle-run') {
+      angle = Math.abs(value1); run = Math.abs(value2);
+      if (angle <= 0 || angle >= 90 || run <= 0) { error.textContent = '角度须在0°到90°之间，水平边必须大于0。'; valid = false; }
+      const radians = Math.min(89.999, Math.max(0.001, angle)) * Math.PI / 180;
+      rise = run * Math.tan(radians);
+      hypotenuse = run / Math.cos(radians);
+      steps = [
+        `求高差：B = A × tanθ = ${calcNumber(run, 1)} × tan(${calcNumber(angle, 2)}°) = ${calcNumber(rise, 1)} mm`,
+        `求斜长：C = A ÷ cosθ = ${calcNumber(run, 1)} ÷ cos(${calcNumber(angle, 2)}°) = ${calcNumber(hypotenuse, 1)} mm`
+      ];
+    } else if (mode === 'angle-rise') {
+      angle = Math.abs(value1); rise = Math.abs(value2);
+      if (angle <= 0 || angle >= 90 || rise <= 0) { error.textContent = '角度须在0°到90°之间，高差必须大于0。'; valid = false; }
+      const radians = Math.min(89.999, Math.max(0.001, angle)) * Math.PI / 180;
+      run = rise / Math.tan(radians);
+      hypotenuse = rise / Math.sin(radians);
+      steps = [
+        `求水平边：A = B ÷ tanθ = ${calcNumber(rise, 1)} ÷ tan(${calcNumber(angle, 2)}°) = ${calcNumber(run, 1)} mm`,
+        `求斜长：C = B ÷ sinθ = ${calcNumber(rise, 1)} ÷ sin(${calcNumber(angle, 2)}°) = ${calcNumber(hypotenuse, 1)} mm`
+      ];
+    } else {
+      const deltaE = value1, deltaN = value2, deltaZ = value3;
+      run = Math.hypot(deltaE, deltaN);
+      rise = Math.abs(deltaZ);
+      hypotenuse = Math.hypot(run, deltaZ);
+      angle = run > 0 ? Math.atan2(deltaZ, run) * 180 / Math.PI : (deltaZ ? Math.sign(deltaZ) * 90 : 0);
+      const bearing = run > 0 ? (Math.atan2(deltaN, deltaE) * 180 / Math.PI + 360) % 360 : 0;
+      extra = `${calcNumber(bearing, 2)}°（E+向N+）`;
+      if (!hypotenuse) { error.textContent = '至少输入一个非零坐标差。'; valid = false; }
+      steps = [
+        `第一次勾股：P = √(ΔE² + ΔN²) = √(${calcNumber(deltaE, 1)}² + ${calcNumber(deltaN, 1)}²) = ${calcNumber(run, 1)} mm`,
+        `第二次勾股：C = √(P² + ΔEL²) = √(${calcNumber(run, 1)}² + ${calcNumber(deltaZ, 1)}²) = ${calcNumber(hypotenuse, 1)} mm`,
+        `坡度角：θ = atan(ΔEL ÷ P) = ${calcNumber(angle, 2)}°`,
+        `平面方向：atan2(ΔN, ΔE) = ${extra}`
+      ];
+    }
+
+    const spatial = mode === 'spatial';
+    document.getElementById('triangleRunLabel').textContent = spatial ? '平面偏移 P' : '水平边 A';
+    document.getElementById('triangleRiseLabel').textContent = spatial ? '高差 |ΔEL|' : '高差 B';
+    document.getElementById('triangleHypLabel').textContent = spatial ? '空间真长 C' : '斜边 C';
+    document.getElementById('triangleAngleLabel').textContent = spatial ? '坡度角 θ' : '斜管角度 θ';
+    document.getElementById('triangleExtraLabel').textContent = spatial ? '平面方向角' : '另一锐角';
+    if (!valid) {
+      ['triangleRunResult', 'triangleRiseResult', 'triangleHypResult', 'triangleAngleResult', 'triangleGradeResult', 'triangleExtraResult'].forEach((id) => {
+        document.getElementById(id).textContent = '—';
+      });
+      document.getElementById('triangleLabSteps').innerHTML = '<li>当前尺寸不能组成所选的直角三角形，请按上方提示修改。</li>';
+      document.getElementById('triangleLabDiagram').innerHTML = '<title>输入尺寸无效</title><text x="55" y="180">当前尺寸不能组成有效的直角三角形</text>';
+      document.getElementById('triangleLabCaption').textContent = '修正输入后，图形、角度和代入步骤会自动恢复。';
+      return;
+    }
+    document.getElementById('triangleRunResult').textContent = `${calcNumber(run)} mm`;
+    document.getElementById('triangleRiseResult').textContent = `${calcNumber(rise)} mm`;
+    document.getElementById('triangleHypResult').textContent = `${calcNumber(hypotenuse)} mm`;
+    document.getElementById('triangleAngleResult').textContent = `${calcNumber(angle, 2)}°`;
+    document.getElementById('triangleGradeResult').textContent = run > 0 ? `${calcNumber(rise / run * 100, 2)}%` : '垂直管段';
+    document.getElementById('triangleExtraResult').textContent = spatial ? extra : `${calcNumber(90 - angle, 2)}°`;
+    document.getElementById('triangleLabSteps').innerHTML = steps.map((step) => `<li>${step}</li>`).join('');
+    document.getElementById('triangleLabCaption').textContent = spatial ? '空间斜管要做两次勾股：先求平面偏移，再与高差组成第二个直角三角形。' : '蓝线是斜管中心线 C；水平边 A 与高差 B 互相垂直。';
+    renderTriangleLabDiagram({ mode, run, rise, hypotenuse, angle: Math.abs(angle), extra, raw: [value1, value2, value3] });
+  }
+
+  function newTrianglePractice() {
+    const type = Math.floor(Math.random() * 3);
+    const pairs = [[300, 400], [600, 800], [900, 1200], [500, 1200], [800, 1500]];
+    const [run, rise] = pairs[Math.floor(Math.random() * pairs.length)];
+    if (type === 0) {
+      const answer = Math.hypot(run, rise);
+      trianglePracticeProblem = { answer, unit: 'mm', tolerance: 0.6, explanation: `√(${run}² + ${rise}²) = ${calcNumber(answer, 1)} mm` };
+      document.getElementById('trianglePracticeQuestion').textContent = `水平距离 ${run} mm，高差 ${rise} mm，求斜管中心线长度。`;
+    } else if (type === 1) {
+      const answer = Math.atan2(rise, run) * 180 / Math.PI;
+      trianglePracticeProblem = { answer, unit: '°', tolerance: 0.11, explanation: `atan(${rise} ÷ ${run}) = ${calcNumber(answer, 2)}°` };
+      document.getElementById('trianglePracticeQuestion').textContent = `水平距离 ${run} mm，高差 ${rise} mm，求斜管与水平线的夹角。`;
+    } else {
+      const angles = [30, 45, 60];
+      const selectedAngle = angles[Math.floor(Math.random() * angles.length)];
+      const selectedRun = [500, 800, 1000, 1200][Math.floor(Math.random() * 4)];
+      const answer = selectedRun * Math.tan(selectedAngle * Math.PI / 180);
+      trianglePracticeProblem = { answer, unit: 'mm', tolerance: 0.6, explanation: `${selectedRun} × tan(${selectedAngle}°) = ${calcNumber(answer, 1)} mm` };
+      document.getElementById('trianglePracticeQuestion').textContent = `斜管角度 ${selectedAngle}°，水平距离 ${selectedRun} mm，求高差。`;
+    }
+    document.getElementById('trianglePracticeUnit').textContent = trianglePracticeProblem.unit;
+    document.getElementById('trianglePracticeAnswer').value = '';
+    const feedback = document.getElementById('trianglePracticeFeedback');
+    feedback.textContent = '写下计算过程，再输入保留1位小数的答案。';
+    feedback.className = 'status-line';
+  }
+
+  function checkTrianglePractice() {
+    if (!trianglePracticeProblem) return;
+    const answer = Number(document.getElementById('trianglePracticeAnswer').value);
+    const feedback = document.getElementById('trianglePracticeFeedback');
+    if (!Number.isFinite(answer)) {
+      feedback.textContent = '请先输入答案。';
+      feedback.className = 'status-line is-error';
+      return;
+    }
+    const correct = Math.abs(answer - trianglePracticeProblem.answer) <= trianglePracticeProblem.tolerance;
+    feedback.textContent = correct ? `正确。${trianglePracticeProblem.explanation}` : `再核对公式。正确计算：${trianglePracticeProblem.explanation}`;
+    feedback.className = `status-line ${correct ? 'is-success' : 'is-error'}`;
+  }
+
+  const fabricationExamples = {
+    'face-two': { basis: 'face', distance: 900, joints: 2, takeoutA: 150, takeoutB: 150, gap: 2, trim: 0, compensation: 0, kerf: 3 },
+    'face-one': { basis: 'face', distance: 900, joints: 1, takeoutA: 150, takeoutB: 150, gap: 2, trim: 0, compensation: 0, kerf: 3 },
+    'center-elbows': { basis: 'center', distance: 900, joints: 2, takeoutA: 150, takeoutB: 150, gap: 2, trim: 0, compensation: 0, kerf: 3 },
+    'field-trim': { basis: 'face', distance: 900, joints: 2, takeoutA: 150, takeoutB: 150, gap: 2, trim: 20, compensation: 0, kerf: 3 }
+  };
+
+  function setFabricationExample(key) {
+    const example = fabricationExamples[key];
+    if (!example) return;
+    document.getElementById('fabricationBasis').value = example.basis;
+    document.getElementById('fabricationDistance').value = example.distance;
+    document.getElementById('fabricationJointCount').value = example.joints;
+    document.getElementById('fabricationTakeoutA').value = example.takeoutA;
+    document.getElementById('fabricationTakeoutB').value = example.takeoutB;
+    document.getElementById('fabricationRootGap').value = example.gap;
+    document.getElementById('fabricationTrim').value = example.trim;
+    document.getElementById('fabricationCompensation').value = example.compensation;
+    document.getElementById('fabricationKerf').value = example.kerf;
+    updateFabricationCalculator();
+  }
+
+  function renderFabricationDiagram({ basis, distance, takeoutA, takeoutB, jointCount, rootGap, exactLength, blankLength, kerf }) {
+    const leftCenter = 45, rightCenter = 575;
+    const leftFace = basis === 'center' ? 145 : 82;
+    const rightFace = basis === 'center' ? 475 : 538;
+    const gapWidth = 15;
+    const leftGap = jointCount >= 1 ? gapWidth : 0;
+    const rightGap = jointCount >= 2 ? gapWidth : 0;
+    const pipeStart = leftFace + leftGap;
+    const pipeEnd = rightFace - rightGap;
+    const dimensionLabel = basis === 'center' ? '中心/理论交点距离 D' : '坡口端面净距 D';
+    const leftTakeout = basis === 'center' ? `
+      <line class="diagram-takeout" x1="${leftCenter}" y1="175" x2="${leftFace}" y2="175"/>
+      <text class="diagram-muted" x="${leftCenter + 20}" y="155">TA ${calcNumber(takeoutA, 0)}</text>` : '';
+    const rightTakeout = basis === 'center' ? `
+      <line class="diagram-takeout" x1="${rightFace}" y1="175" x2="${rightCenter}" y2="175"/>
+      <text class="diagram-muted" x="${rightFace + 20}" y="155">TB ${calcNumber(takeoutB, 0)}</text>` : '';
+    const gaps = `${jointCount >= 1 ? `<line class="diagram-gap" x1="${leftFace}" y1="175" x2="${pipeStart}" y2="175"/><text class="diagram-muted" x="${leftFace - 2}" y="215">g ${calcNumber(rootGap, 1)}</text>` : ''}
+      ${jointCount >= 2 ? `<line class="diagram-gap" x1="${pipeEnd}" y1="175" x2="${rightFace}" y2="175"/><text class="diagram-muted" x="${pipeEnd - 4}" y="215">g ${calcNumber(rootGap, 1)}</text>` : ''}`;
+    document.getElementById('fabricationDiagram').innerHTML = `
+      <title>直管下料尺寸分解</title><desc>显示总尺寸、两端管件占用、对接焊根部间隙、直管成品长度和锯缝耗料</desc>
+      <text x="28" y="30">${basis === 'center' ? '中心距下料' : '端面净距下料'} · ${jointCount}个对接焊口</text>
+      <line class="diagram-dimension" x1="${basis === 'center' ? leftCenter : leftFace}" y1="75" x2="${basis === 'center' ? rightCenter : rightFace}" y2="75"/>
+      <line class="diagram-grid" x1="${basis === 'center' ? leftCenter : leftFace}" y1="62" x2="${basis === 'center' ? leftCenter : leftFace}" y2="90"/>
+      <line class="diagram-grid" x1="${basis === 'center' ? rightCenter : rightFace}" y1="62" x2="${basis === 'center' ? rightCenter : rightFace}" y2="90"/>
+      <text x="205" y="62">${dimensionLabel} = ${calcNumber(distance, 1)} mm</text>
+      ${leftTakeout}${rightTakeout}${gaps}
+      <line class="diagram-main" x1="${pipeStart}" y1="175" x2="${pipeEnd}" y2="175"/>
+      <line class="diagram-end-face" x1="${leftFace}" y1="135" x2="${leftFace}" y2="215"/>
+      <line class="diagram-end-face" x1="${rightFace}" y1="135" x2="${rightFace}" y2="215"/>
+      <circle class="diagram-point" cx="${basis === 'center' ? leftCenter : leftFace}" cy="175" r="5"/>
+      <circle class="diagram-point" cx="${basis === 'center' ? rightCenter : rightFace}" cy="175" r="5"/>
+      <text x="${(pipeStart + pipeEnd) / 2 - 70}" y="145">直管理论长度 ${calcNumber(exactLength, 1)}</text>
+      <line class="diagram-stock" x1="80" y1="280" x2="520" y2="280"/>
+      <line class="diagram-gap" x1="520" y1="260" x2="538" y2="300"/>
+      <text class="diagram-muted" x="80" y="255">毛坯切割目标 ${calcNumber(blankLength, 1)} mm</text>
+      <text class="diagram-muted" x="445" y="325">锯缝 K ${calcNumber(kerf, 1)} mm</text>
+      <text class="diagram-muted" x="28" y="345">红色间隙为放大示意 · 最终端面长度按实际测量</text>`;
+  }
+
+  function updateFabricationCalculator() {
+    const basis = document.getElementById('fabricationBasis').value;
+    const distance = Math.max(0, calcValue('fabricationDistance'));
+    const jointCount = Math.max(0, Math.min(2, Math.round(calcValue('fabricationJointCount'))));
+    const takeoutAInput = document.getElementById('fabricationTakeoutA');
+    const takeoutBInput = document.getElementById('fabricationTakeoutB');
+    const takeoutA = basis === 'center' ? Math.max(0, calcValue('fabricationTakeoutA')) : 0;
+    const takeoutB = basis === 'center' ? Math.max(0, calcValue('fabricationTakeoutB')) : 0;
+    const rootGap = Math.max(0, calcValue('fabricationRootGap'));
+    const trim = Math.max(0, calcValue('fabricationTrim'));
+    const compensation = calcValue('fabricationCompensation');
+    const kerf = Math.max(0, calcValue('fabricationKerf'));
+    const takeoutTotal = takeoutA + takeoutB;
+    const gapTotal = jointCount * rootGap;
+    const exactLength = distance - takeoutTotal - gapTotal;
+    const blankLength = exactLength + trim + compensation;
+    const stockConsumed = blankLength + kerf;
+    const error = document.getElementById('fabricationError');
+
+    takeoutAInput.disabled = basis !== 'center';
+    takeoutBInput.disabled = basis !== 'center';
+    document.getElementById('fabricationTakeoutAWrap').classList.toggle('is-disabled', basis !== 'center');
+    document.getElementById('fabricationTakeoutBWrap').classList.toggle('is-disabled', basis !== 'center');
+    document.getElementById('fabricationTakeoutResult').textContent = `${calcNumber(takeoutTotal)} mm`;
+    document.getElementById('fabricationGapResult').textContent = `${jointCount} × ${calcNumber(rootGap)} = ${calcNumber(gapTotal)} mm`;
+
+    if (distance <= 0 || exactLength <= 0 || blankLength <= 0) {
+      error.textContent = distance <= 0 ? '图纸或实测距离必须大于0。' : '扣除管件占用和焊口间隙后没有可用直管长度，请检查尺寸基准。';
+      ['fabricationExactResult', 'fabricationBlankResult', 'fabricationStockResult'].forEach((id) => document.getElementById(id).textContent = '—');
+      document.getElementById('fabricationFormulaText').textContent = '当前输入不能组成有效下料尺寸。';
+      document.getElementById('fabricationDiagram').innerHTML = '<title>下料尺寸无效</title><text x="70" y="180">请检查总尺寸、管件占用和焊口间隙</text>';
+      return;
+    }
+
+    error.textContent = '';
+    document.getElementById('fabricationExactResult').textContent = `${calcNumber(exactLength)} mm`;
+    document.getElementById('fabricationBlankResult').textContent = `${calcNumber(blankLength)} mm`;
+    document.getElementById('fabricationStockResult').textContent = `${calcNumber(stockConsumed)} mm`;
+    const takeoutFormula = basis === 'center' ? ` - ${calcNumber(takeoutA, 1)} - ${calcNumber(takeoutB, 1)}` : '';
+    document.getElementById('fabricationFormulaText').textContent = `L = ${calcNumber(distance, 1)}${takeoutFormula} - ${jointCount}×${calcNumber(rootGap, 1)} + ${calcNumber(trim, 1)} + ${calcNumber(compensation, 1)} = ${calcNumber(blankLength, 1)} mm`;
+    renderFabricationDiagram({ basis, distance, takeoutA, takeoutB, jointCount, rootGap, exactLength, blankLength, kerf });
   }
 
   function updateReturnCalculator() {
@@ -1715,6 +2262,22 @@
       });
     }));
     ['calcDeltaE', 'calcDeltaN', 'calcDeltaZ', 'quickOffset', 'quickOffsetAngle'].forEach((id) => document.getElementById(id).addEventListener('input', updateAngleCalculator));
+    document.getElementById('triangleLabMode').addEventListener('change', (event) => setTriangleLabMode(event.target.value));
+    ['triangleLabValue1', 'triangleLabValue2', 'triangleLabValue3'].forEach((id) => document.getElementById(id).addEventListener('input', updateTriangleLab));
+    document.querySelectorAll('[data-triangle-example]').forEach((button) => button.addEventListener('click', () => {
+      const example = triangleLabExamples[button.dataset.triangleExample];
+      if (example) setTriangleLabMode(example.mode, example.values);
+    }));
+    document.getElementById('trianglePracticeNewBtn').addEventListener('click', newTrianglePractice);
+    document.getElementById('trianglePracticeCheckBtn').addEventListener('click', checkTrianglePractice);
+    document.getElementById('trianglePracticeAnswer').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') checkTrianglePractice();
+    });
+    ['fabricationDistance', 'fabricationTakeoutA', 'fabricationTakeoutB', 'fabricationRootGap', 'fabricationTrim', 'fabricationCompensation', 'fabricationKerf'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateFabricationCalculator);
+    });
+    ['fabricationBasis', 'fabricationJointCount'].forEach((id) => document.getElementById(id).addEventListener('change', updateFabricationCalculator));
+    document.querySelectorAll('[data-fabrication-example]').forEach((button) => button.addEventListener('click', () => setFabricationExample(button.dataset.fabricationExample)));
     ['returnOffset', 'returnAngle', 'returnRadius'].forEach((id) => document.getElementById(id).addEventListener('input', updateReturnCalculator));
     ['elbowDn', 'elbowRadiusType', 'elbowAngle', 'elbowCustomRadius', 'elbowCenterDistance'].forEach((id) => {
       document.getElementById(id).addEventListener(id === 'elbowRadiusType' ? 'change' : 'input', updateElbowCalculator);
@@ -1726,6 +2289,9 @@
     ['saddleHeaderDiameter', 'saddleBranchDiameter'].forEach((id) => document.getElementById(id).addEventListener('input', updateSaddleCalculator));
     ['compareOldE', 'compareOldN', 'compareOldZ', 'compareNewE', 'compareNewN', 'compareNewZ'].forEach((id) => document.getElementById(id).addEventListener('input', updateCompareCalculator));
     updateAngleCalculator();
+    setTriangleLabMode('legs', triangleLabDefaults.legs);
+    newTrianglePractice();
+    setFabricationExample('face-two');
     updateReturnCalculator();
     updateElbowCalculator();
     updateClosureCalculator();
@@ -1964,7 +2530,10 @@
   }
 
   function updateMobileNavigation(page) {
-    document.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === page));
+    const mobilePage = page === 'spatial' || page === 'import' ? 'trainer'
+      : page === 'lessons' || page === 'modules' || page === 'route' || page === 'coach' || page === 'field' ? 'home'
+        : page;
+    document.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === mobilePage));
   }
 
   function initMobileNavigation() {
@@ -1972,7 +2541,7 @@
       const target = document.querySelector(`[data-page="${button.dataset.mobilePage}"]`);
       if (target) target.click();
     }));
-    updateMobileNavigation('trainer');
+    updateMobileNavigation('home');
 
     // 在步骤条上滑动切换段落，避免与3D单指旋转手势冲突。
     let touchStartX = 0;
@@ -2027,6 +2596,63 @@
     button.textContent = active ? '↺ 竖屏' : (manualLandscapeMode ? '↻ 请横放' : '↻ 横屏');
     button.title = active ? '退出横屏训练' : '进入横屏训练；浏览器中请开启自动旋转并横放手机';
     refreshThreeLayout();
+  }
+
+  function activatePage(page, options = {}) {
+    const { push = true } = options;
+    const target = document.getElementById(`page-${page}`);
+    if (!target) return false;
+    document.querySelectorAll('.top-tab').forEach((item) => item.classList.toggle('is-active', item.dataset.page === page));
+    document.querySelectorAll('.page').forEach((item) => {
+      const active = item === target;
+      item.classList.toggle('is-active', active);
+      item.hidden = !active;
+    });
+    if (push) {
+      if (page === 'home') navigationHistory = ['home'];
+      else if (navigationHistory[navigationHistory.length - 1] !== page) navigationHistory.push(page);
+    }
+    activePage = page;
+    if (page === 'trainer') ensureThreeReady().catch((error) => console.error(error));
+    updateMobileNavigation(page);
+    setTimeout(applyTrainingLayout, 0);
+    window.dispatchEvent(new CustomEvent('pipe-page-change', { detail: { page } }));
+    window.scrollTo(0, 0);
+    return true;
+  }
+
+  function navigateBack() {
+    if (navigationHistory.length > 1) navigationHistory.pop();
+    const page = navigationHistory[navigationHistory.length - 1] || 'home';
+    activatePage(page, { push: false });
+  }
+
+  function handleAppBackButton() {
+    if (!document.getElementById('globalSearchOverlay')?.hidden) {
+      window.PipeGlobalSearch?.close();
+      return;
+    }
+    if (!document.getElementById('quickCalcDrawer')?.hidden) {
+      document.getElementById('quickCalcCloseBtn').click();
+      return;
+    }
+    if (activePage !== 'home' || navigationHistory.length > 1) {
+      navigateBack();
+      return;
+    }
+    const now = Date.now();
+    if (now - lastBackPress < 1800) {
+      window.plus?.runtime?.quit?.();
+      return;
+    }
+    lastBackPress = now;
+    window.plus?.nativeUI?.toast?.('再按一次退出');
+  }
+
+  function initAppBackButton() {
+    const bind = () => window.plus?.key?.addEventListener?.('backbutton', handleAppBackButton);
+    if (window.plus) bind();
+    else document.addEventListener('plusready', bind, { once: true });
   }
 
   function requestDeviceOrientation(landscape) {
@@ -2150,7 +2776,10 @@
       quizActive = false;
       updateAll();
     });
-    document.getElementById('resetBtn').addEventListener('click', () => setPreset(activePreset));
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (activePreset === 'external' && externalCaseState) loadExternalCase(externalCaseState);
+      else setPreset(activePreset);
+    });
     document.querySelectorAll('.preset-btn').forEach((btn) => btn.addEventListener('click', () => setPreset(btn.dataset.preset)));
     document.querySelectorAll('.view-btn').forEach((btn) => btn.addEventListener('click', () => {
       currentView = btn.dataset.view;
@@ -2159,7 +2788,7 @@
     }));
     document.getElementById('fitViewBtn').addEventListener('click', () => fitCamera());
     document.getElementById('shadowToggle').addEventListener('change', (event) => {
-      shadowGroup.visible = event.target.checked;
+      if (shadowGroup) shadowGroup.visible = event.target.checked;
       markDirty();
     });
     document.getElementById('labelToggle').addEventListener('change', positionCoordLabels);
@@ -2171,18 +2800,13 @@
       quizActive = false;
       updateVisualsOnly();
     });
-    document.querySelectorAll('.top-tab').forEach((tab) => tab.addEventListener('click', () => {
-      const page = tab.dataset.page;
-      document.querySelectorAll('.top-tab').forEach((item) => item.classList.toggle('is-active', item === tab));
-      document.querySelectorAll('.page').forEach((item) => {
-        const active = item.id === `page-${page}`;
-        item.classList.toggle('is-active', active);
-        item.hidden = !active;
-      });
-      if (page === 'trainer') setTimeout(() => { resizeThree(); fitCamera(); }, 0);
-      updateMobileNavigation(page);
-      setTimeout(applyTrainingLayout, 0);
-    }));
+    document.querySelectorAll('.top-tab').forEach((tab) => tab.addEventListener('click', () => activatePage(tab.dataset.page)));
+    document.getElementById('undoTrainerBtn').addEventListener('click', undoTrainer);
+    document.getElementById('redoTrainerBtn').addEventListener('click', redoTrainer);
+    window.addEventListener('pagehide', () => {
+      if (trainerHistoryPending) finalizeTrainerHistory();
+      else saveTrainerDraft();
+    });
 
     const saved = readJson(profileKey('pipe-route-progress'), []);
     document.querySelectorAll('[data-task]').forEach((checkbox) => {
@@ -2199,6 +2823,16 @@
       if (!getCachedElement('quickCalcDrawer').hidden) return;
       // 仅在训练器页面启用，避免方向键劫持其他页面滚动。
       if (!getCachedElement('page-trainer').classList.contains('is-active')) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const command = event.key.toLowerCase();
+        if (command === 'z' || command === 'y') {
+          event.preventDefault();
+          if (command === 'y' || event.shiftKey) redoTrainer();
+          else undoTrainer();
+          return;
+        }
+      }
 
       const shortcuts = {
         'n': () => getCachedElement('addSegmentBtn').click(),
@@ -2230,8 +2864,30 @@
     renderProfilePage();
   }
 
+  window.PipeTrainerApp = {
+    loadExternalCase,
+    navigate: activatePage,
+    back: navigateBack,
+    getActivePage: () => activePage,
+    ensureThreeReady,
+    startWirePractice() {
+      randomChallenge();
+      return copyPresetObject(state);
+    },
+    revealPractice() {
+      quizActive = false;
+      updateVisualsOnly();
+    },
+    getCurrentState() {
+      return copyPresetObject(state);
+    },
+    getActiveProfileId() {
+      return activeProfileId || 'default';
+    }
+  };
+
   initProfileCore();
-  initThree();
+  restoreTrainerDraft(false);
   bindEvents();
   initCaseLibrary();
   initCollapsiblePanels();
@@ -2242,6 +2898,7 @@
   initQuickCalculator();
   initMobileNavigation();
   initProfileUI();
+  initAppBackButton();
   syncHeaderInputs();
-  updateAll(true);
+  updateAll(false);
 })();

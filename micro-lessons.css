@@ -1,0 +1,90 @@
+.micro-lessons-page { max-width: 1280px; margin: 0 auto; padding: 28px 24px 76px; }
+.micro-lessons-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.micro-lessons-header span, .online-learning-section header span { color: var(--primary); font-size: 11px; }
+.micro-lessons-header h2 { margin: 5px 0; font-size: 23px; font-weight: 500; }
+.micro-lessons-header p, .online-learning-section header p { margin: 0; color: var(--muted); }
+.micro-lessons-progress { display: grid; grid-template-columns: auto auto minmax(160px, 1fr); align-items: center; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.micro-lessons-progress span { color: var(--muted); }
+.micro-lessons-progress strong { font-variant-numeric: tabular-nums; }
+.micro-lessons-progress > div { height: 7px; background: var(--surface-alt); }
+.micro-lessons-progress i { display: block; width: 0; height: 100%; background: var(--green); }
+.micro-lessons-shell { min-width: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); border-bottom: 1px solid var(--border); }
+.micro-lessons-list-panel { min-width: 0; padding: 22px 18px 22px 0; border-right: 1px solid var(--border); }
+.micro-lessons-list-panel h3 { margin: 0 0 10px; font-size: 15px; font-weight: 500; }
+.micro-lesson-list { max-width: 100%; display: grid; }
+.micro-lesson-list button { display: grid; grid-template-columns: 34px 1fr auto; gap: 9px; align-items: center; min-height: 62px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; }
+.micro-lesson-list button.is-active { background: var(--primary-soft); color: var(--primary); }
+.micro-lesson-list b { font-size: 18px; font-weight: 500; }
+.micro-lesson-list span { display: grid; gap: 3px; }
+.micro-lesson-list small { color: var(--muted); font-size: 11px; }
+.micro-lesson-list em { color: var(--green); font-style: normal; }
+.micro-lesson-stage { min-width: 0; padding: 22px 0 26px 24px; }
+.micro-lesson-title { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+.micro-lesson-title span { color: var(--orange); font-size: 11px; }
+.micro-lesson-title h3 { margin: 4px 0 5px; font-size: 20px; font-weight: 500; }
+.micro-lesson-title p { margin: 0; color: var(--muted); }
+.micro-lesson-title > strong { color: var(--primary); font-variant-numeric: tabular-nums; }
+.micro-visual-panel { border: 1px solid var(--border); background: var(--surface); }
+.micro-visual-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 5px 11px; border-bottom: 1px solid var(--border); }
+.micro-visual-toolbar > span { font-weight: 500; }
+.micro-visual-toolbar > div { display: flex; gap: 5px; }
+.micro-visual-toolbar button { min-width: 38px; min-height: 34px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
+#microLessonPlayBtn { min-width: 64px; color: var(--primary); }
+#microLessonSvg { display: block; width: 100%; background: var(--surface); }
+#microLessonSvg text { fill: var(--text); font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif; font-size: 13px; }
+#microLessonSvg .micro-main { fill: none; stroke: var(--primary); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+#microLessonSvg .micro-active { fill: none; stroke: var(--orange); stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+#microLessonSvg .micro-helper { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 7 6; }
+#microLessonSvg .micro-dimension { fill: none; stroke: var(--orange); stroke-width: 1.5; }
+#microLessonSvg .micro-point { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
+#microLessonSvg .micro-axis-e { stroke: #c75a45; stroke-width: 2; }
+#microLessonSvg .micro-axis-n { stroke: #28759c; stroke-width: 2; }
+#microLessonSvg .micro-axis-z { stroke: #3d8a61; stroke-width: 2; }
+#microLessonSvg .micro-muted { fill: var(--muted); font-size: 11px; }
+#microLessonSvg .micro-pipe-fill { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 2; }
+.micro-lesson-dots { display: flex; justify-content: center; gap: 7px; min-height: 34px; padding: 11px; border-top: 1px solid var(--border); }
+.micro-lesson-dots button { width: 12px; height: 12px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-alt); }
+.micro-lesson-dots button.is-active { border-color: var(--primary); background: var(--primary); }
+.micro-explanation { padding: 17px 0; border-bottom: 1px solid var(--border); }
+.micro-explanation h4 { margin: 0; font-size: 15px; font-weight: 500; }
+.micro-explanation > p { margin: 8px 0 0; color: var(--muted); line-height: 1.65; }
+.micro-formula { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--primary); background: var(--primary-soft); line-height: 1.6; font-variant-numeric: tabular-nums; }
+.micro-quiz { padding: 18px 0 0; }
+.micro-quiz > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.micro-quiz header span { color: var(--orange); font-size: 10px; }
+.micro-quiz h4 { margin: 3px 0 0; font-size: 16px; font-weight: 500; }
+.micro-quiz header strong { color: var(--muted); font-weight: 400; }
+.micro-quiz > p { margin: 13px 0; line-height: 1.55; }
+.micro-quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.micro-quiz-choices button { min-height: 44px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); text-align: left; }
+.micro-quiz-choices button.is-correct { border-color: var(--green); color: var(--green); }
+.micro-quiz-choices button.is-wrong { border-color: var(--red); color: var(--red); }
+#microQuizFeedback { min-height: 22px; color: var(--muted); }
+#microQuizFeedback.is-success { color: var(--green); }
+#microQuizFeedback.is-error { color: var(--red); }
+.online-learning-section { padding: 24px 0 0; }
+.online-learning-section > header { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+.online-learning-section h3 { margin: 4px 0 0; font-size: 18px; font-weight: 500; }
+.online-learning-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.online-learning-grid button { min-height: 78px; display: grid; gap: 6px; align-content: center; padding: 11px 13px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); text-align: left; }
+.online-learning-grid strong { font-weight: 500; }
+.online-learning-grid span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+[data-theme="dark"] #microLessonSvg { background: #1c2128; }
+
+@media (max-width: 900px) {
+  .micro-lessons-shell { grid-template-columns: 1fr; }
+  .micro-lessons-list-panel { padding: 16px 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .micro-lesson-list { width: 100%; grid-template-columns: repeat(5, 150px); overflow-x: auto; overscroll-behavior-inline: contain; }
+  .micro-lesson-list button { border: 1px solid var(--border); padding: 7px; }
+  .micro-lesson-list em { display: none; }
+  .micro-lesson-stage { padding-left: 0; }
+}
+
+@media (max-width: 640px) {
+  .micro-lessons-page { padding: 20px 14px 84px; }
+  .micro-lessons-header { align-items: flex-start; }
+  .micro-lessons-header p { font-size: 12px; line-height: 1.5; }
+  .micro-quiz-choices { grid-template-columns: 1fr; }
+  .online-learning-section > header { display: grid; gap: 6px; }
+  .online-learning-grid { grid-template-columns: 1fr; }
+}

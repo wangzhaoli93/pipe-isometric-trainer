@@ -50,6 +50,7 @@
 [data-theme="dark"] .scenario-choice.is-wrong { background: #2d1517; color: #f85149; }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -93,6 +94,7 @@ button { color: inherit; }
 .brand-block h1 { margin: 0; font-size: 17px; font-weight: 500; }
 .brand-block p { margin: 2px 0 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .orientation-btn {
+  flex: 0 0 auto;
   margin-left: auto;
   min-width: 68px;
   min-height: 34px;
@@ -124,6 +126,7 @@ button { color: inherit; }
 .key-elev { background: #3f8a5c; }
 
 .theme-toggle-btn {
+  flex: 0 0 36px;
   width: 36px;
   height: 36px;
   border: 1px solid var(--border);
@@ -282,6 +285,9 @@ input:focus, select:focus, button:focus-visible { outline: 2px solid rgba(20, 10
 .coord-tag.is-selected { color: var(--orange); border-color: var(--orange); }
 .quiz-cover { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 6px; text-align: center; background: rgba(237,240,241,0.96); }
 .quiz-cover[hidden] { display: none; }
+.three-loading { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 7px; background: var(--surface-alt); color: var(--muted); text-align: center; }
+.three-loading strong { color: var(--text); font-weight: 500; }
+.three-loading[hidden] { display: none; }
 .quiz-cover strong { font-size: 18px; font-weight: 500; }
 .quiz-cover span { color: var(--muted); }
 .compass { position: absolute; right: 16px; bottom: 14px; width: 52px; height: 52px; border: 1px solid rgba(23,32,38,0.22); border-radius: 50%; background: rgba(255,255,255,0.84); }
@@ -420,6 +426,32 @@ input:focus, select:focus, button:focus-visible { outline: 2px solid rgba(20, 10
 .calc-input-grid.two-col { grid-template-columns: 1fr 1fr; }
 .calc-input-grid label, .compare-inputs label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }
 .calc-input-grid input, .compare-inputs input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.triangle-mode-label { display: grid; gap: 6px; margin-bottom: 10px; color: var(--muted); font-size: 11px; }
+.triangle-mode-label select { width: 100%; min-height: 40px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.triangle-examples, .fabrication-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 10px 0 16px; }
+.fabrication-presets { grid-template-columns: 1fr 1fr; }
+.triangle-examples button, .fabrication-presets button { min-height: 38px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; }
+.triangle-examples button:hover, .triangle-examples button:focus-visible, .fabrication-presets button:hover, .fabrication-presets button:focus-visible { border-color: var(--primary); color: var(--primary); }
+.fabrication-inputs select { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.fabrication-inputs label.is-disabled { opacity: .55; }
+.fabrication-formula { display: grid; gap: 6px; margin-top: 16px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.fabrication-formula span { color: var(--orange); font-size: 11px; }
+.fabrication-formula strong { font-weight: 500; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.fabrication-rule-list { margin: 4px 0 12px; padding-left: 22px; }
+.fabrication-rule-list li { margin: 7px 0; }
+.triangle-workings { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.triangle-workings h4 { margin: 0 0 8px; font-size: 14px; font-weight: 500; }
+.triangle-workings ol { margin: 0; padding-left: 22px; color: var(--muted); }
+.triangle-workings li { margin: 7px 0; line-height: 1.55; font-variant-numeric: tabular-nums; }
+.triangle-practice { margin-top: 18px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.triangle-practice header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.triangle-practice header span { color: var(--orange); font-size: 11px; }
+.triangle-practice h4 { margin: 3px 0 0; font-size: 15px; font-weight: 500; }
+.triangle-practice > p { margin: 12px 0; line-height: 1.55; }
+.triangle-practice-answer { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; gap: 8px; align-items: end; }
+.triangle-practice-answer label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }
+.triangle-practice-answer input { width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.triangle-practice-answer > span { min-width: 28px; padding-bottom: 10px; color: var(--muted); }
 .calc-results { margin: 22px 0 0; }
 .calc-results div { display: grid; grid-template-columns: minmax(125px, 1fr) minmax(150px, auto); gap: 16px; padding: 11px 0; border-top: 1px solid var(--border); }
 .calc-results dt { color: var(--muted); }
@@ -438,6 +470,14 @@ input:focus, select:focus, button:focus-visible { outline: 2px solid rgba(20, 10
 .calc-svg .diagram-point { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
 .calc-svg text { fill: var(--text); font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif; font-size: 13px; }
 .calc-svg .diagram-muted { fill: var(--muted); font-size: 11px; }
+.triangle-lab-svg .diagram-right-angle { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.triangle-lab-svg .diagram-angle-arc { fill: none; stroke: var(--orange); stroke-width: 2.5; }
+.triangle-lab-svg .diagram-angle-label { fill: var(--orange); font-weight: 500; }
+.fabrication-svg .diagram-dimension { stroke: var(--text); stroke-width: 1.5; }
+.fabrication-svg .diagram-takeout { stroke: var(--orange); stroke-width: 8; stroke-linecap: butt; }
+.fabrication-svg .diagram-gap { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
+.fabrication-svg .diagram-stock { stroke: var(--green); stroke-width: 8; stroke-linecap: butt; }
+.fabrication-svg .diagram-end-face { stroke: var(--muted); stroke-width: 2; }
 .calc-caption { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .calc-error { min-height: 20px; margin: 10px 0 0; color: var(--red); }
 .calc-help { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -616,6 +656,9 @@ select:focus-visible {
   .lesson-detail-grid, .scenario-choices { grid-template-columns: 1fr; gap: 8px; }
   .calc-tabs { display: grid; grid-template-columns: 1fr 1fr; }
   .calc-input-grid, .calc-input-grid.two-col { grid-template-columns: 1fr; }
+  .triangle-examples, .fabrication-presets { grid-template-columns: 1fr 1fr; }
+  .triangle-practice-answer { grid-template-columns: minmax(0, 1fr) auto; }
+  .triangle-practice-answer .primary-btn { grid-column: 1 / -1; }
   .compare-inputs { grid-template-columns: 1fr; }
   .calc-results div { grid-template-columns: 1fr; gap: 4px; }
   .calc-results dd { text-align: left; }

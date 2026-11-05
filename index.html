@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>管线空间训练器</title>
   <link rel="icon" href="icon-512.png">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=1.18.0">
+  <link rel="stylesheet" href="drawing-import.css?v=1.18.0">
+  <link rel="stylesheet" href="spatial-training.css?v=1.18.0">
+  <link rel="stylesheet" href="reference-library.css?v=1.18.0">
+  <link rel="stylesheet" href="field-tools.css?v=1.18.0">
+  <link rel="stylesheet" href="global-search.css?v=1.18.0">
+  <link rel="stylesheet" href="home-dashboard.css?v=1.18.0">
+  <link rel="stylesheet" href="micro-lessons.css?v=1.18.0">
+  <link rel="stylesheet" href="learning-coach.css?v=1.18.0">
+  <link rel="stylesheet" href="field-workbench.css?v=1.18.0">
 </head>
 <body>
   <header class="appbar">
@@ -17,9 +26,13 @@
       </div>
       <button id="landscapeBtn" class="orientation-btn" type="button" aria-pressed="false" title="切换手机横屏训练">↻ 横屏</button>
       <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="切换暗色模式" title="切换暗色模式">◐</button>
+      <button id="globalSearchBtn" class="global-search-btn" type="button" aria-label="全局搜索" title="全局搜索 Ctrl+F">⌕</button>
     </div>
     <nav class="top-tabs" aria-label="页面">
-      <button class="top-tab is-active" data-page="trainer">训练器</button>
+      <button class="top-tab is-active" data-page="home">首页</button>
+      <button class="top-tab" data-page="trainer">训练器</button>
+      <button class="top-tab" data-page="spatial">空间闯关</button>
+      <button class="top-tab" data-page="import">图纸识别</button>
       <button class="top-tab" data-page="modules">专业模块</button>
       <button class="top-tab" data-page="calc">放样计算</button>
       <button class="top-tab" data-page="route">学习路线</button>
@@ -34,7 +47,119 @@
   </header>
 
   <main>
-    <section id="page-trainer" class="page is-active">
+    <section id="page-home" class="page home-page is-active">
+      <header class="home-header">
+        <div><span>WORKBENCH</span><h2>今天要做什么</h2><p>按现场、学习和资料任务进入，减少在菜单之间来回寻找。</p></div>
+        <label class="home-glove-toggle"><input id="homeGloveToggle" type="checkbox"><span>手套大按钮</span></label>
+      </header>
+      <nav class="home-mode-tabs" aria-label="首页模式">
+        <button class="is-active" type="button" data-home-mode="field">现场</button>
+        <button type="button" data-home-mode="learn">学习</button>
+        <button type="button" data-home-mode="reference">资料</button>
+      </nav>
+
+      <section class="home-mode-panel is-active" data-home-panel="field">
+        <div class="home-project-band">
+          <div><span>当前项目</span><select id="homeProjectSelect"></select></div>
+          <div><span>新建项目</span><div><input id="homeProjectName" type="text" maxlength="30" placeholder="例如 FOT12A预制"><button id="homeAddProjectBtn" type="button">新建</button></div></div>
+        </div>
+        <button id="homeResumeBtn" class="home-resume" type="button"><span>继续上次工作</span><strong id="homeResumeTitle">还没有计算记录</strong><small id="homeResumeMeta">选择下方工具开始</small><b>→</b></button>
+        <div class="home-quick-actions">
+          <button type="button" data-home-page="field"><b>记</b><span>现场记录</span></button>
+          <button type="button" data-home-calc="compound"><b>XY</b><span>复合偏移</span></button>
+          <button type="button" data-home-calc="slope"><b>‰</b><span>坡度标高</span></button>
+          <button type="button" data-home-page="import"><b>OCR</b><span>识别图纸</span></button>
+          <button type="button" data-home-page="trainer"><b>3D</b><span>自由练图</span></button>
+        </div>
+        <section class="home-recent-section">
+          <header><h3>最近计算</h3><button id="homeClearRecentBtn" type="button">清空</button></header>
+          <div id="homeRecentList" class="home-recent-list"></div>
+        </section>
+        <section class="home-health-section">
+          <header><div><h3>离线资源检查</h3><p>检查3D、OCR、PDF、模型文件和本地存储。</p></div><button id="homeHealthCheckBtn" type="button">开始检查</button></header>
+          <div id="homeHealthResults" class="home-health-results"><span>尚未检查</span></div>
+        </section>
+      </section>
+
+      <section class="home-mode-panel" data-home-panel="learn" hidden>
+        <div class="home-learning-summary">
+          <div><span>图文微课</span><strong id="homeMicroProgress">0 / 5</strong><div><i id="homeMicroBar"></i></div></div>
+          <div><span>空间闯关</span><strong id="homeSpatialProgress">0 / 36</strong><div><i id="homeSpatialBar"></i></div></div>
+          <div><span>专业课程</span><strong id="homeModuleProgress">0 / 20</strong><div><i id="homeModuleBar"></i></div></div>
+          <div><span>学习路线</span><strong id="homeRouteProgress">0 / 16</strong><div><i id="homeRouteBar"></i></div></div>
+        </div>
+        <div class="home-learning-actions">
+          <button type="button" data-home-page="coach"><b>测评</b><span>学习教练</span><small id="homeCoachSummary">首次测评生成路线</small></button>
+          <button type="button" data-home-page="lessons"><b>微课</b><span>图文动画课</span><small>5节离线课程</small></button>
+          <button type="button" data-home-page="spatial"><b>继续</b><span>空间感闯关</span><small id="homeSpatialWrong">错题 0</small></button>
+          <button type="button" data-home-page="modules"><b>课程</b><span>专业模块</span><small>石油 · 化工 · 预制</small></button>
+          <button type="button" data-home-action="wire"><b>铁丝</b><span>铁丝实操</span><small>隐藏3D后核对</small></button>
+          <button type="button" data-home-page="route"><b>30天</b><span>学习路线</span><small>按阶段打基础</small></button>
+        </div>
+      </section>
+
+      <section class="home-mode-panel" data-home-panel="reference" hidden>
+        <label class="home-reference-search"><span>搜索缩写、材料、法兰、标准或管径</span><div><input id="homeReferenceSearch" type="search" placeholder="例如 WN、BOP、A105、DN100"><button id="homeReferenceSearchBtn" type="button">搜索</button></div></label>
+        <div class="home-reference-actions">
+          <button type="button" data-home-reference="fitting"><b>管件</b><span>方向符号与外形</span></button>
+          <button type="button" data-home-reference="flange"><b>法兰</b><span>外形、剖面、密封面</span></button>
+          <button type="button" data-home-reference="material"><b>材料</b><span>牌号与适用部件</span></button>
+          <button type="button" data-home-reference="standard"><b>标准</b><span>国标与ASME</span></button>
+          <button type="button" data-home-reference="size"><b>DN</b><span>管径、OD、LR/SR</span></button>
+          <button type="button" data-home-page="glossary"><b>全部</b><span>打开资料中心</span></button>
+        </div>
+        <section class="home-recent-reference"><header><h3>最近搜索</h3></header><div id="homeReferenceHistory"></div></section>
+      </section>
+    </section>
+
+    <section id="page-lessons" class="page micro-lessons-page" hidden>
+      <header class="micro-lessons-header">
+        <div><span>VISUAL MICRO LESSONS</span><h2>管工图文动画课</h2><p>每节3～5分钟：逐步动画、图文说明、小测和现场自检。</p></div>
+        <button id="microLessonsBackBtn" class="secondary-btn" type="button">返回首页</button>
+      </header>
+      <div class="micro-lessons-progress"><span>已完成</span><strong id="microLessonsProgressText">0 / 5</strong><div><i id="microLessonsProgressBar"></i></div></div>
+      <div class="micro-lessons-shell">
+        <aside class="micro-lessons-list-panel">
+          <h3>课程目录</h3>
+          <div id="microLessonList" class="micro-lesson-list"></div>
+        </aside>
+        <main class="micro-lesson-stage">
+          <header class="micro-lesson-title">
+            <div><span id="microLessonNumber">LESSON 01</span><h3 id="microLessonTitle">方向与坐标正负号</h3><p id="microLessonSummary"></p></div>
+            <strong id="microLessonStepCounter">1 / 4</strong>
+          </header>
+          <section class="micro-visual-panel">
+            <div class="micro-visual-toolbar"><span id="microLessonStepTitle">建立坐标轴</span><div><button id="microLessonPrevBtn" type="button" aria-label="上一步">←</button><button id="microLessonPlayBtn" type="button">播放</button><button id="microLessonNextBtn" type="button" aria-label="下一步">→</button></div></div>
+            <svg id="microLessonSvg" viewBox="0 0 760 430" role="img" aria-label="微课动画示意"></svg>
+            <div id="microLessonDots" class="micro-lesson-dots"></div>
+          </section>
+          <section class="micro-explanation">
+            <h4 id="microExplanationTitle">本步要点</h4>
+            <p id="microExplanationText"></p>
+            <div id="microFormula" class="micro-formula"></div>
+          </section>
+          <section class="micro-quiz">
+            <header><div><span>CHECK</span><h4>本课小测</h4></div><strong id="microQuizStatus">未完成</strong></header>
+            <p id="microQuizQuestion"></p>
+            <div id="microQuizChoices" class="micro-quiz-choices"></div>
+            <p id="microQuizFeedback" aria-live="polite"></p>
+            <button id="microLessonCompleteBtn" class="primary-btn" type="button" disabled>答对后完成本课</button>
+          </section>
+        </main>
+      </div>
+      <section class="online-learning-section">
+        <header><div><span>OFFICIAL RESOURCES</span><h3>官方在线学习</h3></div><p>打开外部网页需要联网，内容版权归原发布方所有。</p></header>
+        <div class="online-learning-grid">
+          <button type="button" data-learning-url="https://help.autodesk.com/cloudhelp/2026/ENU/Plant3D-UserGuide/files/GUID-B9085D60-CD0C-4160-8EEF-7B527D59E476.htm"><strong>Autodesk Plant 3D</strong><span>轴测图生成、标注和材料表</span></button>
+          <button type="button" data-learning-url="https://safst.swagelok.com/en/resources/video-resources/installation"><strong>Swagelok安装视频</strong><span>管接头、螺纹、PTFE和常见错误</span></button>
+          <button type="button" data-learning-url="https://www.victaulic.com/systems/installation-ready-technology/"><strong>Victaulic安装视频</strong><span>沟槽连接、卡箍和安装检查</span></button>
+          <button type="button" data-learning-url="https://www.millerwelds.com/en-US/resources/knowledge-hub"><strong>Miller焊接知识</strong><span>管道焊接、焊接符号与视频</span></button>
+          <button type="button" data-learning-url="https://www.asme.org/learning-development/find-course/essentials-b31-3-process-piping-code"><strong>ASME B31.3课程</strong><span>设计、材料、制造、检验与试压</span></button>
+        </div>
+      </section>
+    </section>
+
+    <section id="page-trainer" class="page" hidden>
       <div class="workspace">
         <aside class="builder-panel" aria-label="管线参数">
           <section class="panel-section presets-section">
@@ -42,6 +167,10 @@
               <h2>练习管路</h2>
               <button id="caseFavoriteBtn" class="icon-btn case-favorite-btn" type="button" title="收藏当前案例" aria-label="收藏当前案例">☆</button>
               <button id="resetBtn" class="icon-btn" type="button" title="恢复当前预设" aria-label="恢复当前预设">↺</button>
+            </div>
+            <div class="trainer-entry-strip">
+              <button id="openSpatialBtn" class="primary-btn" type="button">空间闯关</button>
+              <button id="openImportBtn" class="secondary-btn" type="button">识别图纸</button>
             </div>
             <div class="case-filter" role="group" aria-label="案例筛选">
               <button class="case-filter-btn is-active" type="button" data-case-filter="all">全部</button>
@@ -84,7 +213,7 @@
           <section class="panel-section segments-section">
             <div class="section-heading">
               <h2>路径步骤</h2>
-              <button id="addSegmentBtn" class="command-btn" type="button" title="新增管段 (快捷键 N)" aria-label="新增管段 (快捷键 N)" aria-keyshortcuts="N">＋ 新增段</button>
+              <div class="section-actions"><button id="undoTrainerBtn" class="icon-btn" type="button" title="撤销" aria-label="撤销" disabled>↶</button><button id="redoTrainerBtn" class="icon-btn" type="button" title="重做" aria-label="重做" disabled>↷</button><button id="addSegmentBtn" class="command-btn" type="button" title="新增管段 (快捷键 N)" aria-label="新增管段 (快捷键 N)" aria-keyshortcuts="N">＋ 新增段</button></div>
             </div>
             <div id="segmentList" class="segment-list"></div>
           </section>
@@ -92,7 +221,10 @@
           <section class="panel-section quiz-section">
             <div class="section-heading">
               <h2>坐标练习</h2>
-              <button id="randomBtn" class="command-btn" type="button" title="随机题 (快捷键 R)" aria-label="随机题 (快捷键 R)" aria-keyshortcuts="R">随机题</button>
+              <div class="section-actions">
+                <button id="wirePracticeBtn" class="command-btn" type="button">铁丝实操</button>
+                <button id="randomBtn" class="command-btn" type="button" title="随机题 (快捷键 R)" aria-label="随机题 (快捷键 R)" aria-keyshortcuts="R">随机题</button>
+              </div>
             </div>
             <div class="input-grid three-col">
               <label>终点 E<input id="answerE" type="number" step="50"></label>
@@ -104,6 +236,14 @@
               <button id="revealBtn" class="secondary-btn" type="button">显示3D</button>
             </div>
             <p id="quizMessage" class="status-line" aria-live="polite"></p>
+            <div id="wirePracticePanel" class="wire-practice-panel" hidden>
+              <strong>铁丝成形自检</strong>
+              <label><input type="checkbox" data-wire-check="start"> 起点和第一段方向正确</label>
+              <label><input type="checkbox" data-wire-check="turns"> 转折数量与图纸一致</label>
+              <label><input type="checkbox" data-wire-check="elevation"> 上升、下降和水平段正确</label>
+              <label><input type="checkbox" data-wire-check="end"> 终点朝向正确</label>
+              <p id="wirePracticeProgress">完成 0 / 4 项后显示3D核对。</p>
+            </div>
           </section>
         </aside>
 
@@ -125,6 +265,7 @@
             </div>
           </div>
           <div id="threeViewport" class="three-viewport">
+            <div id="threeLoading" class="three-loading"><strong>正在载入3D引擎</strong><span>首次进入可能需要几秒</span></div>
             <div id="coordLabels" class="coord-labels" aria-hidden="true"></div>
             <div id="quizCover" class="quiz-cover" hidden>
               <strong>3D答案已隐藏</strong>
@@ -169,6 +310,155 @@
               </table>
             </div>
           </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-spatial" class="page spatial-page" hidden>
+      <header class="content-header spatial-header">
+        <div>
+          <span class="spatial-kicker">SPATIAL TRAINING</span>
+          <h2>空间感闯关</h2>
+          <p>从方向判断到考试图拆解，先读图和计算，提交后再显示可旋转3D。</p>
+        </div>
+        <button id="spatialBackBtn" class="secondary-btn" type="button">返回自由训练</button>
+      </header>
+
+      <div class="spatial-progress-summary">
+        <div><span>已掌握</span><strong id="spatialCompletedCount">0 / 36</strong></div>
+        <div class="spatial-progress-track"><div id="spatialProgressBar"></div></div>
+        <div><span>错题</span><strong id="spatialWrongCount">0</strong></div>
+      </div>
+
+      <div class="spatial-shell">
+        <aside class="spatial-level-panel" aria-label="闯关级别">
+          <div class="spatial-level-heading"><h3>训练级别</h3><button id="spatialWrongBtn" type="button">只练错题</button></div>
+          <div id="spatialLevelList" class="spatial-level-list"></div>
+          <p>每级6题。使用提示不会阻止过关，但会降低本题得分。</p>
+        </aside>
+
+        <main class="spatial-stage">
+          <header class="spatial-question-header">
+            <div><span id="spatialLevelName">01 方向基础</span><h3 id="spatialQuestionTitle">判断单段方向</h3></div>
+            <div class="spatial-question-progress"><strong id="spatialQuestionIndex">1 / 6</strong><span id="spatialScore">100分</span></div>
+          </header>
+
+          <div class="spatial-view-grid">
+            <section class="spatial-drawing-view" aria-labelledby="spatialDrawingTitle">
+              <div class="spatial-view-heading"><h4 id="spatialDrawingTitle">单线图</h4><span>只沿粗实线</span></div>
+              <div class="spatial-drawing-toolbar">
+                <div class="spatial-scale-switch" role="group" aria-label="图形比例">
+                  <button class="is-active" type="button" data-spatial-scale="schematic" aria-pressed="true">示意比例</button>
+                  <button type="button" data-spatial-scale="true" aria-pressed="false">真实比例</button>
+                </div>
+                <label><input id="spatialHelperLayer" type="checkbox" checked> 辅助线</label>
+                <label><input id="spatialPointLayer" type="checkbox" checked> 坐标点</label>
+                <label><input id="spatialWeldLayer" type="checkbox" checked> 焊口</label>
+              </div>
+              <svg id="spatialIsoSvg" role="img" aria-label="闯关题单线图" viewBox="0 0 620 430"></svg>
+              <div class="spatial-legend"><span><i class="is-pipe"></i>真实管线</span><span><i class="is-helper"></i>尺寸/投影辅助线</span><span>E+右下 · N+左下 · EL+向上</span></div>
+              <div class="spatial-path-tools">
+                <button id="spatialPathModeBtn" type="button">按顺序点路径</button>
+                <span id="spatialPathStatus">从P0开始，沿粗实线找转折点。</span>
+              </div>
+            </section>
+            <section class="spatial-three-view" aria-labelledby="spatialThreeTitle">
+              <div class="spatial-view-heading"><h4 id="spatialThreeTitle">3D核对</h4><button id="spatialFitBtn" type="button" disabled>适配视图</button></div>
+              <div id="spatialThreeViewport"></div>
+              <div id="spatialThreeCover" class="spatial-three-cover"><strong>答案已隐藏</strong><span>提交答案后显示3D</span></div>
+            </section>
+          </div>
+
+          <section class="spatial-answer-section">
+            <p id="spatialPrompt" class="spatial-prompt"></p>
+            <div id="spatialAnswerArea"></div>
+            <div class="spatial-actions">
+              <button id="spatialHintBtn" class="secondary-btn" type="button">提示 1/3</button>
+              <button id="spatialSubmitBtn" class="primary-btn" type="button">提交答案</button>
+              <button id="spatialRevealBtn" class="secondary-btn" type="button">显示答案</button>
+              <button id="spatialNextBtn" class="primary-btn" type="button" hidden>下一题</button>
+            </div>
+            <p id="spatialHintText" class="spatial-hint" aria-live="polite"></p>
+            <p id="spatialFeedback" class="spatial-feedback" aria-live="polite"></p>
+          </section>
+
+          <section class="spatial-step-explainer" aria-labelledby="spatialStepTitle">
+            <header><h4 id="spatialStepTitle">逐段坐标讲解</h4><span>答题后开放</span></header>
+            <div>
+              <button id="spatialStepPrevBtn" type="button" disabled aria-label="上一段">←</button>
+              <p id="spatialStepText">提交答案后，可以逐段查看坐标如何变化。</p>
+              <button id="spatialStepNextBtn" type="button" disabled aria-label="下一段">→</button>
+            </div>
+          </section>
+
+          <details id="spatialWirePractice" class="spatial-wire-practice">
+            <summary>铁丝弯制自检</summary>
+            <div>
+              <label><input type="checkbox" data-spatial-wire="start"> 起点和第一段方向正确</label>
+              <label><input type="checkbox" data-spatial-wire="turn"> 只在真实转折处弯折</label>
+              <label><input type="checkbox" data-spatial-wire="level"> 上升、下降和水平段正确</label>
+              <label><input type="checkbox" data-spatial-wire="end"> 终点朝向与坐标正确</label>
+              <p id="spatialWireProgress">完成 0 / 4 项</p>
+            </div>
+          </details>
+
+          <footer class="spatial-question-nav">
+            <button id="spatialPrevBtn" type="button">← 上一题</button>
+            <button id="spatialRestartLevelBtn" type="button">重练本级</button>
+            <button id="spatialSkipBtn" type="button">下一题 →</button>
+          </footer>
+        </main>
+      </div>
+    </section>
+
+    <section id="page-import" class="page drawing-import-page" hidden>
+      <header class="content-header import-header">
+        <div><h2>图纸识别与3D还原</h2><p>支持JPG、PNG和PDF。自动识别只提供候选，坐标、尺寸和方向必须人工确认。</p></div>
+        <span class="import-mode-badge">半自动</span>
+      </header>
+      <div class="import-steps" aria-label="识别步骤">
+        <span class="is-active">1 上传图纸</span><span>2 提取参数</span><span>3 标记中心线</span><span>4 确认并生成</span>
+      </div>
+      <div class="import-layout">
+        <aside class="import-controls">
+          <section>
+            <h3>图纸文件</h3>
+            <label class="drawing-file-drop" id="drawingDropZone">选择或拖入图纸<input id="drawingFileInput" type="file" accept="image/png,image/jpeg,application/pdf"></label>
+            <p id="drawingFileInfo">单个文件不超过50MB；PDF按页处理。</p>
+            <div class="pdf-page-controls" id="pdfPageControls" hidden><button id="pdfPrevPage" type="button">←</button><span id="pdfPageLabel">1 / 1</span><button id="pdfNextPage" type="button">→</button></div>
+          </section>
+          <section>
+            <h3>自动提取</h3>
+            <div class="import-action-row"><button id="extractPdfTextBtn" class="secondary-btn" type="button" disabled>读取PDF文字</button><button id="runOcrBtn" class="primary-btn" type="button" disabled>OCR识别</button></div>
+            <div class="import-progress"><div id="importProgressBar"></div></div><p id="importStatus" aria-live="polite">等待上传图纸。</p>
+            <label>识别文字<textarea id="ocrTextOutput" rows="6" placeholder="识别结果会显示在这里，也可人工修正"></textarea></label>
+          </section>
+          <section>
+            <h3>基础参数</h3>
+            <div class="import-param-grid">
+              <label>管线号<input id="importLineNo" type="text" placeholder="例如 CA-01001"></label>
+              <label>DN<input id="importDn" type="number" min="1" value="100"></label>
+              <label>起点E<input id="importStartE" type="number" value="0"></label>
+              <label>起点N<input id="importStartN" type="number" value="0"></label>
+              <label>起点EL<input id="importStartZ" type="number" value="0"></label>
+            </div>
+            <div id="ocrCandidateList" class="ocr-candidates"></div>
+          </section>
+          <section>
+            <h3>中心线工具</h3>
+            <div class="import-tool-grid"><button id="autoLineBtn" type="button" disabled>自动找长线</button><button id="manualTraceBtn" type="button" disabled>手动标点</button><button id="undoTraceBtn" type="button" disabled>撤销一点</button><button id="clearTraceBtn" type="button" disabled>清空</button></div>
+            <p>按管线顺序依次点击起点、转折点和终点。红线是自动建议，蓝线是人工确认。</p>
+          </section>
+        </aside>
+        <main class="drawing-stage-panel">
+          <div class="drawing-stage-toolbar"><span id="drawingStageHint">上传后在图上标记中心线</span><button id="fitDrawingBtn" type="button" disabled>适配图纸</button></div>
+          <div id="drawingStage" class="drawing-stage"><canvas id="drawingCanvas"></canvas><svg id="drawingOverlay" aria-label="中心线标记"></svg><div class="drawing-empty">尚未上传图纸</div></div>
+        </main>
+        <aside class="import-segments-panel">
+          <div class="section-heading"><h3>路径确认</h3><span id="importPointCount">0个点</span></div>
+          <p class="import-confidence-note">方向和长度为推测值，生成前逐段确认。</p>
+          <div id="importSegmentList" class="import-segment-list"></div>
+          <button id="generateImportedModelBtn" class="primary-btn import-generate-btn" type="button" disabled>生成3D与单线图</button>
         </aside>
       </div>
     </section>
@@ -258,15 +548,19 @@
     </section>
 
     <section id="page-calc" class="page calculator-page" hidden>
-      <header class="content-header">
-        <h2>管工工程计算</h2>
-        <p>从中心线几何开始，逐步计算偏移、弯头扣除、闭合管段、展开与改造尺寸。</p>
+      <header class="content-header calc-page-header">
+        <div><h2>管工工程计算</h2><p>从中心线几何开始，逐步计算偏移、弯头扣除、闭合管段、展开与改造尺寸。</p></div>
+        <button id="exportCalcReportBtn" class="secondary-btn" type="button">导出当前报告</button>
       </header>
 
       <p class="standard-note calc-warning">仅用于几何学习与现场复核思路。承压管道的弯头、支管和改造方案必须由项目设计、检验及批准程序确认，实际切割还要考虑壁厚、坡口、焊口间隙、切缝和加工余量。</p>
 
       <nav class="calc-tabs" aria-label="计算类型">
+        <button class="calc-tab" type="button" data-calc-mode="triangle-lab">勾股/三角</button>
         <button class="calc-tab is-active" type="button" data-calc-mode="angle">空间角度</button>
+        <button class="calc-tab" type="button" data-calc-mode="compound">复合偏移</button>
+        <button class="calc-tab" type="button" data-calc-mode="slope">坡度标高</button>
+        <button class="calc-tab" type="button" data-calc-mode="fabrication">直管下料</button>
         <button class="calc-tab" type="button" data-calc-mode="return">来回弯</button>
         <button class="calc-tab" type="button" data-calc-mode="elbow">弯头下料</button>
         <button class="calc-tab" type="button" data-calc-mode="closure">死口/活口</button>
@@ -312,6 +606,221 @@
           </div>
           <div class="calc-visual">
             <svg id="angleDiagram" class="calc-svg" viewBox="0 0 620 330" role="img" aria-label="空间偏移平面图和立面图"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-compound" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">COMPOUND / ROLLING OFFSET</span>
+            <h3>双平面复合偏移</h3>
+            <p>两个同角度弯头同时跨越X、Y两个方向，计算合成偏移、滚转角、斜管中心线行程和中间直管长度。</p>
+            <div class="calc-input-grid two-col">
+              <label>偏移 X mm<input id="compoundOffsetX" type="number" value="600" step="10"></label>
+              <label>偏移 Y mm<input id="compoundOffsetY" type="number" value="800" step="10"></label>
+              <label>弯头角度 θ°<input id="compoundAngle" type="number" min="1" max="89" value="45" step="0.5"></label>
+              <label>弯头中心半径 R mm<input id="compoundRadius" type="number" min="0" value="150" step="1"></label>
+              <label>单端焊口间隙 mm<input id="compoundGap" type="number" min="0" value="2" step="0.5"></label>
+              <label>管径目录<select id="compoundPipeSize"></select></label>
+            </div>
+            <div class="compound-radius-actions"><button id="compoundUseLrBtn" type="button">采用LR半径</button><button id="compoundUseSrBtn" type="button">采用SR半径</button></div>
+            <dl class="calc-results">
+              <div><dt>合成偏移</dt><dd id="compoundOffsetResult">-</dd></div>
+              <div><dt>滚转方向角 φ</dt><dd id="compoundRollResult">-</dd></div>
+              <div><dt>理论斜管行程</dt><dd id="compoundTravelResult">-</dd></div>
+              <div><dt>轴向推进距离</dt><dd id="compoundRunResult">-</dd></div>
+              <div><dt>单只弯头切线长</dt><dd id="compoundTangentResult">-</dd></div>
+              <div><dt>中间直管下料参考</dt><dd id="compoundSpoolResult">-</dd></div>
+            </dl>
+            <p id="compoundError" class="calc-error" role="alert"></p>
+            <details class="calc-help" open>
+              <summary>公式和测量基准</summary>
+              <div class="calc-help-content">
+                <p class="calc-formula">合成偏移 O = √(X²+Y²)<br>滚转角 φ = atan2(Y,X)<br>斜管行程 T = O÷sinθ<br>轴向推进 A = O÷tanθ<br>切线长 t = R×tan(θ÷2)<br>中间直管 = T-2t-2g</p>
+                <p class="calc-caution">这里按两个同角度、同半径弯头的中心线模型计算。实际下料还要核对弯头实物中心至端面尺寸、坡口、焊口间隙及安装方向。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual">
+            <svg id="compoundDiagram" class="calc-svg" viewBox="0 0 620 360" role="img" aria-label="复合偏移空间盒与滚转角示意"></svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-slope" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">SLOPE / ELEVATION TABLE</span>
+            <h3>坡度与测点标高表</h3>
+            <p>输入起点标高、水平距离和坡度，计算总升降、终点标高，并按固定间距生成支架或测点标高。</p>
+            <div class="slope-examples"><button type="button" data-slope-example="2percent">2%排液</button><button type="button" data-slope-example="5permille">5‰坡度</button><button type="button" data-slope-example="ratio100">1:100</button></div>
+            <div class="calc-input-grid two-col">
+              <label>起点标高 EL mm<input id="slopeStartEl" type="number" value="10000" step="1"></label>
+              <label>水平距离 mm<input id="slopeLength" type="number" min="0" value="6000" step="10"></label>
+              <label>坡度数值<input id="slopeValue" type="number" min="0" value="2" step="0.1"></label>
+              <label>坡度单位<select id="slopeUnit"><option value="percent">%</option><option value="permille">‰</option><option value="mmper">mm/m</option><option value="ratio">1:n中的n</option><option value="degree">角度°</option></select></label>
+              <label>流向升降<select id="slopeDirection"><option value="down">沿流向下降</option><option value="up">沿流向上升</option></select></label>
+              <label>测点间距 mm<input id="slopeStationInterval" type="number" min="1" value="1000" step="10"></label>
+            </div>
+            <dl class="calc-results">
+              <div><dt>总升降量</dt><dd id="slopeRiseResult">-</dd></div>
+              <div><dt>终点标高</dt><dd id="slopeEndResult">-</dd></div>
+              <div><dt>等价坡度</dt><dd id="slopeEquivalentResult">-</dd></div>
+              <div><dt>坡度角</dt><dd id="slopeAngleResult">-</dd></div>
+            </dl>
+            <p id="slopeError" class="calc-error" role="alert"></p>
+            <details class="calc-help">
+              <summary>坡度单位换算</summary>
+              <div class="calc-help-content"><p class="calc-formula">2% = 20‰ = 20 mm/m = 1:50<br>5‰ = 5 mm/m = 0.5% = 1:200<br>升降量 = 水平距离 × 坡度</p><p class="calc-caution">必须确认图纸坡度沿流向是升还是降；本工具按水平投影距离计算，不用斜管真长代替。</p></div>
+            </details>
+          </div>
+          <div class="calc-visual slope-visual">
+            <svg id="slopeDiagram" class="calc-svg" viewBox="0 0 620 300" role="img" aria-label="坡度和标高变化示意"></svg>
+            <div class="slope-table-wrap"><table class="slope-table"><thead><tr><th>测点</th><th>距离 mm</th><th>标高 EL mm</th></tr></thead><tbody id="slopeStationBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-fabrication" class="calc-panel" hidden>
+        <div class="calculator-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">CUT LENGTH / FIT-UP</span>
+            <h3>直管下料与焊口组对</h3>
+            <p>先确认图纸尺寸的起止基准，再扣管件占用和对接焊根部间隙。修切余量与工艺补偿属于加量，切缝只影响原料耗用。</p>
+
+            <label class="triangle-mode-label">图纸或实测尺寸类型
+              <select id="fabricationBasis">
+                <option value="face">两个坡口端面之间的净距</option>
+                <option value="center">两个管件中心或理论交点之间的距离</option>
+              </select>
+            </label>
+
+            <div class="fabrication-presets" aria-label="典型下料例题">
+              <button type="button" data-fabrication-example="face-two">900净距·双焊口</button>
+              <button type="button" data-fabrication-example="face-one">900净距·单焊口</button>
+              <button type="button" data-fabrication-example="center-elbows">900中心·占用150×2</button>
+              <button type="button" data-fabrication-example="field-trim">900净距·活口留20</button>
+            </div>
+
+            <div class="calc-input-grid two-col fabrication-inputs">
+              <label>图纸/实测距离 D mm<input id="fabricationDistance" type="number" min="0" value="900" step="1"></label>
+              <label>对接焊口数量<select id="fabricationJointCount"><option value="0">0个</option><option value="1">1个</option><option value="2" selected>2个</option></select></label>
+              <label id="fabricationTakeoutAWrap">A端中心至坡口端面 TA mm<input id="fabricationTakeoutA" type="number" min="0" value="150" step="1"></label>
+              <label id="fabricationTakeoutBWrap">B端中心至坡口端面 TB mm<input id="fabricationTakeoutB" type="number" min="0" value="150" step="1"></label>
+              <label>每个焊口根部间隙 g mm<input id="fabricationRootGap" type="number" min="0" value="2" step="0.5"></label>
+              <label>现场修切余量 F mm<input id="fabricationTrim" type="number" min="0" value="0" step="1"></label>
+              <label>工艺规定补偿量 S mm<input id="fabricationCompensation" type="number" value="0" step="0.5"></label>
+              <label>本次切割锯缝宽度 K mm<input id="fabricationKerf" type="number" min="0" value="3" step="0.5"></label>
+            </div>
+
+            <dl class="calc-results">
+              <div><dt>管件占用合计 TA+TB</dt><dd id="fabricationTakeoutResult">-</dd></div>
+              <div><dt>焊口间隙合计 n×g</dt><dd id="fabricationGapResult">-</dd></div>
+              <div><dt>理论精确下料长度</dt><dd id="fabricationExactResult">-</dd></div>
+              <div><dt>实际毛坯切割目标</dt><dd id="fabricationBlankResult">-</dd></div>
+              <div><dt>原管最少消耗（含锯缝）</dt><dd id="fabricationStockResult">-</dd></div>
+            </dl>
+            <p id="fabricationError" class="calc-error" role="alert"></p>
+
+            <div class="fabrication-formula" aria-live="polite">
+              <span>本题算式</span>
+              <strong id="fabricationFormulaText">-</strong>
+            </div>
+
+            <details class="calc-help" open>
+              <summary>下料和组对规则</summary>
+              <div class="calc-help-content">
+                <ol class="fabrication-rule-list">
+                  <li>先看尺寸线箭头落在中心、理论交点还是坡口端面，不能只看一个900。</li>
+                  <li>根部间隙按本项目WPS执行，并在定位焊完成后复查；不要固定背成2或3毫米。</li>
+                  <li>坡口角、钝边、错边量和定位焊也必须符合WPS及项目工艺。</li>
+                  <li>现场修切余量只在允许调整的一端增加，死口不能随意多留再强行组对。</li>
+                  <li>锯缝宽度影响原材料消耗，不应再从成品目标长度中减一次。</li>
+                </ol>
+                <p class="calc-formula">端面净距：L = D - n×g + F + S<br>中心距：L = D - TA - TB - n×g + F + S<br>原管消耗 = L + K</p>
+                <p class="calc-caution">这里计算的是直管成品端面长度。弯头、三通、法兰和阀门尺寸必须查对应图纸、标准或实物；承插焊、螺纹连接不能套用本页的对接焊间隙公式。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual fabrication-visual">
+            <svg id="fabricationDiagram" class="calc-svg fabrication-svg" viewBox="0 0 620 360" role="img" aria-label="直管下料、管件占用和焊口间隙示意"></svg>
+            <p class="calc-caption">红色间隔是示意放大的根部间隙，图形不按间隙实际比例绘制。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="calc-triangle-lab" class="calc-panel" hidden>
+        <div class="calculator-layout triangle-lab-layout">
+          <div class="calc-controls">
+            <span class="calc-kicker">PIPE TRIANGLE LAB</span>
+            <h3>勾股定理与管道角度</h3>
+            <p>先判断已知的是边还是角，再选勾股定理或三角函数。图中的角度统一从水平边向斜管中心线量取。</p>
+
+            <label class="triangle-mode-label">已知条件
+              <select id="triangleLabMode">
+                <option value="legs">已知水平边和高差，求斜长与角度</option>
+                <option value="hyp-rise">已知斜长和高差，求水平边与角度</option>
+                <option value="angle-run">已知角度和水平边，求高差与斜长</option>
+                <option value="angle-rise">已知角度和高差，求水平边与斜长</option>
+                <option value="spatial">空间偏移：ΔE、ΔN、ΔEL二次勾股</option>
+              </select>
+            </label>
+
+            <div class="triangle-examples" aria-label="典型例题">
+              <button type="button" data-triangle-example="345">3-4-5基础</button>
+              <button type="button" data-triangle-example="45-offset">45°偏移</button>
+              <button type="button" data-triangle-example="30-run">30°斜管</button>
+              <button type="button" data-triangle-example="slope">2%坡管</button>
+              <button type="button" data-triangle-example="spatial">空间偏移</button>
+            </div>
+
+            <div class="calc-input-grid triangle-lab-inputs">
+              <label id="triangleLabValue1Wrap"><span id="triangleLabValue1Label">水平边 A mm</span><input id="triangleLabValue1" type="number" value="800" step="10"></label>
+              <label id="triangleLabValue2Wrap"><span id="triangleLabValue2Label">高差 B mm</span><input id="triangleLabValue2" type="number" value="600" step="10"></label>
+              <label id="triangleLabValue3Wrap" hidden><span id="triangleLabValue3Label">ΔEL mm</span><input id="triangleLabValue3" type="number" value="600" step="10"></label>
+            </div>
+
+            <dl class="calc-results">
+              <div><dt id="triangleRunLabel">水平边 A</dt><dd id="triangleRunResult">-</dd></div>
+              <div><dt id="triangleRiseLabel">高差 B</dt><dd id="triangleRiseResult">-</dd></div>
+              <div><dt id="triangleHypLabel">斜边 C</dt><dd id="triangleHypResult">-</dd></div>
+              <div><dt id="triangleAngleLabel">斜管角度 θ</dt><dd id="triangleAngleResult">-</dd></div>
+              <div><dt>坡度 B ÷ A</dt><dd id="triangleGradeResult">-</dd></div>
+              <div><dt id="triangleExtraLabel">另一锐角</dt><dd id="triangleExtraResult">-</dd></div>
+            </dl>
+            <p id="triangleLabError" class="calc-error" role="alert"></p>
+
+            <div class="triangle-workings">
+              <h4>代入步骤</h4>
+              <ol id="triangleLabSteps" aria-live="polite"></ol>
+            </div>
+
+            <section class="triangle-practice" aria-labelledby="trianglePracticeTitle">
+              <header><div><span>随机练习</span><h4 id="trianglePracticeTitle">先算后核对</h4></div><button id="trianglePracticeNewBtn" class="secondary-btn" type="button">换一题</button></header>
+              <p id="trianglePracticeQuestion"></p>
+              <div class="triangle-practice-answer">
+                <label>你的答案<input id="trianglePracticeAnswer" type="number" step="0.1" inputmode="decimal"></label>
+                <span id="trianglePracticeUnit">mm</span>
+                <button id="trianglePracticeCheckBtn" class="primary-btn" type="button">核对</button>
+              </div>
+              <p id="trianglePracticeFeedback" class="status-line" aria-live="polite"></p>
+            </section>
+
+            <details class="calc-help">
+              <summary>什么时候用哪个公式</summary>
+              <div class="calc-help-content">
+                <p><strong>两条直角边已知：</strong>用勾股定理求斜边，再用 atan 求角度。</p>
+                <p><strong>斜边和一条直角边已知：</strong>先用勾股定理反求另一边，再用 asin 或 acos 求角度。</p>
+                <p><strong>一个锐角和一条边已知：</strong>对边/邻边用 tan，对边/斜边用 sin，邻边/斜边用 cos。</p>
+                <p class="calc-formula">C = √(A²+B²)<br>θ = atan(B÷A)<br>sinθ = B÷C · cosθ = A÷C · tanθ = B÷A</p>
+                <p class="calc-caution">现场先确认尺寸是中心线尺寸还是端面尺寸；计算出的中心线斜长不能直接替代扣除弯头后的直管下料长度。</p>
+              </div>
+            </details>
+          </div>
+          <div class="calc-visual triangle-lab-visual">
+            <svg id="triangleLabDiagram" class="calc-svg triangle-lab-svg" viewBox="0 0 620 360" role="img" aria-label="管道直角三角形尺寸与角度示意"></svg>
+            <p id="triangleLabCaption" class="calc-caption">蓝线代表管道中心线，灰线是计算辅助边。</p>
           </div>
         </div>
       </section>
@@ -593,6 +1102,10 @@
         <h2>单线图速查表</h2>
         <p>现场常见缩写、图纸类型与空间判断关键词。</p>
       </header>
+      <section id="glossarySearchDetail" class="glossary-search-detail" hidden>
+        <div><span id="glossarySearchKind">搜索结果</span><h3 id="glossarySearchCode">WN</h3></div>
+        <div><strong id="glossarySearchEnglish">Weld Neck Flange</strong><p id="glossarySearchChinese">对焊颈法兰</p></div>
+      </section>
       <div class="glossary-grid">
         <section>
           <h3>坐标与图纸</h3>
@@ -647,6 +1160,183 @@
           </dl>
         </section>
       </div>
+
+      <section class="reference-atlas" aria-labelledby="referenceAtlasTitle">
+        <header class="reference-atlas-header">
+          <div><span>FIELD REFERENCE</span><h3 id="referenceAtlasTitle">材料与管件图鉴</h3><p>按名称、代号、材料牌号或标准号搜索；示意图用于识图，最终选型与尺寸必须核对项目规格书和对应标准表。</p></div>
+          <label class="reference-search">搜索图鉴<input id="referenceSearch" type="search" placeholder="例如 WN、三通、A105、GB/T 12459"></label>
+        </header>
+
+        <nav class="reference-tabs" aria-label="图鉴分类">
+          <button type="button" data-reference-category="all">全部</button>
+          <button class="is-active" type="button" data-reference-category="basics">基础识图</button>
+          <button type="button" data-reference-category="fitting">管件</button>
+          <button type="button" data-reference-category="flange">法兰</button>
+          <button type="button" data-reference-category="facing">密封面</button>
+          <button type="button" data-reference-category="material">常用材料</button>
+          <button type="button" data-reference-category="standard">标准</button>
+        </nav>
+
+        <section id="drawingSymbolBasics" class="drawing-symbol-basics" aria-labelledby="drawingSymbolTitle">
+          <header><div><span>DRAWING SYMBOLS</span><h4 id="drawingSymbolTitle">常见管口、弯头与三通方向符号</h4></div><p>左侧是培训和项目图纸中常见的简化画法，右侧是对应的空间外形。符号细节可能随项目图例变化，方向最终按E/N/EL和本图图例判断。</p></header>
+          <div id="symbolBasicsGrid" class="symbol-basics-grid"></div>
+        </section>
+
+        <div id="elevationSizeGrid" class="elevation-size-grid" hidden>
+          <section class="elevation-reference" aria-labelledby="elevationReferenceTitle">
+            <header><span>ELEVATION</span><h4 id="elevationReferenceTitle">TOP / COP / BOP 标高</h4></header>
+            <svg viewBox="0 0 520 270" role="img" aria-label="管顶、管中心和管底标高关系">
+              <title>TOP COP BOP标高关系</title>
+              <rect class="elevation-pipe" x="85" y="90" width="350" height="90" rx="45"/>
+              <line class="elevation-center" x1="55" y1="135" x2="465" y2="135"/>
+              <line class="elevation-mark top" x1="55" y1="90" x2="465" y2="90"/><text x="365" y="78">TOP 管顶标高</text>
+              <line class="elevation-mark center" x1="55" y1="135" x2="465" y2="135"/><text x="365" y="128">COP / CL 管中心标高</text>
+              <line class="elevation-mark bottom" x1="55" y1="180" x2="465" y2="180"/><text x="365" y="205">BOP 管底标高</text>
+              <line class="elevation-dimension" x1="70" y1="90" x2="70" y2="180"/>
+              <text x="40" y="138" transform="rotate(-90 40 138)">实际外径 OD</text>
+              <text class="elevation-note" x="85" y="238">TOP = COP + OD÷2　　BOP = COP - OD÷2</text>
+            </svg>
+            <p><strong>TOP</strong>通常指管顶，<strong>COP/CL</strong>通常指管中心线，<strong>BOP</strong>通常指管底。若图纸另有缩写定义，以项目图例为准；保温层一般不自动计入管外表面标高。</p>
+          </section>
+
+          <section class="nominal-size-reference" aria-labelledby="nominalSizeTitle">
+            <header><span>NOMINAL SIZE</span><h4 id="nominalSizeTitle">DN与NPS/英寸常用对照</h4></header>
+            <div class="nominal-size-table-wrap">
+              <table class="nominal-size-table">
+                <thead><tr><th>DN</th><th>NPS</th><th>现场俗称</th><th>常用OD mm</th><th>90° LR mm</th><th>90° SR mm</th></tr></thead>
+                <tbody id="nominalSizeBody"></tbody>
+              </table>
+            </div>
+            <p>这是常用公称尺寸对应关系。DN是无量纲公称尺寸，不等于实际内径或外径；实际外径和壁厚必须继续查管系列与SCH。不要用“DN÷25”代替标准对照表。</p>
+          </section>
+        </div>
+
+        <section id="teeOrientationTool" class="tee-orientation-tool" aria-labelledby="teeOrientationTitle">
+          <div class="tee-controls">
+            <span>TEE ORIENTATION</span>
+            <h4 id="teeOrientationTitle">三通支口方向识别</h4>
+            <p>主管固定为西—东方向，从三通中心看支口终点。方向由坐标变化决定，不由纸面看起来向哪边决定。</p>
+            <div class="tee-control-group">
+              <strong>支口方向</strong>
+              <div>
+                <button class="is-active" type="button" data-tee-direction="up">向上 EL+</button>
+                <button type="button" data-tee-direction="down">向下 EL-</button>
+                <button type="button" data-tee-direction="north">向北 N+</button>
+                <button type="button" data-tee-direction="south">向南 N-</button>
+              </div>
+            </div>
+            <div class="tee-control-group">
+              <strong>三通形式</strong>
+              <div><button class="is-active" type="button" data-tee-type="equal">等径三通</button><button type="button" data-tee-type="reducing">异径三通</button></div>
+            </div>
+            <div class="tee-control-group">
+              <strong>标准体系</strong>
+              <div><button class="is-active" type="button" data-tee-standard="gb">国标 DN</button><button type="button" data-tee-standard="asme">美标 NPS</button></div>
+            </div>
+            <dl class="tee-readout">
+              <div><dt>图纸读法</dt><dd id="teeDirectionReadout">主管W↔E，支口EL+</dd></div>
+              <div><dt>管件名称</dt><dd id="teeTypeReadout">等径三通</dd></div>
+              <div><dt>常用标准</dt><dd id="teeStandardReadout">GB/T 12459-2025</dd></div>
+            </dl>
+          </div>
+          <div class="tee-visual">
+            <svg id="teeOrientationSvg" viewBox="0 0 620 390" role="img" aria-label="三通主管和支口方向示意"></svg>
+            <p>同一个三通旋转安装后，支口可以朝上、朝下、朝北或朝南；“国标/美标”主要影响尺寸系列和标记方式，不改变坐标方向判断。</p>
+          </div>
+        </section>
+
+        <div id="referenceResultHeading" class="reference-result-heading" hidden><h4>图鉴条目</h4><span id="referenceResultCount">0项</span></div>
+        <div id="referenceCardGrid" class="reference-card-grid" hidden></div>
+        <p id="referenceEmpty" class="reference-empty" hidden>没有匹配条目，请尝试代号、中文名称、材料牌号或标准号。</p>
+      </section>
+
+      <section class="abbreviation-quiz">
+        <header><div><span>现场口试</span><h3>英文缩写闯关</h3></div><strong id="abbrQuizScore">0 / 0</strong></header>
+        <p id="abbrQuizPrompt">点击开始，从常见图纸缩写中随机抽题。</p>
+        <div id="abbrQuizChoices" class="abbr-quiz-choices"></div>
+        <p id="abbrQuizFeedback" aria-live="polite"></p>
+        <div><button id="abbrQuizStartBtn" class="primary-btn" type="button">开始抽题</button><button id="abbrQuizNextBtn" class="secondary-btn" type="button" hidden>下一题</button></div>
+      </section>
+    </section>
+
+    <section id="page-coach" class="page coach-page" hidden>
+      <header class="coach-header">
+        <div><span>LEARNING COACH</span><h2>学习教练</h2><p>能力测评、薄弱项归因和下一步训练安排。</p></div>
+        <button id="coachBackBtn" class="secondary-btn" type="button">返回首页</button>
+      </header>
+
+      <section id="coachOverview" class="coach-overview">
+        <div class="coach-summary-band">
+          <div><span>当前阶段</span><strong id="coachLevelText">尚未测评</strong><p id="coachSummaryText">完成入门测评后生成个人训练路线。</p></div>
+          <button id="coachStartBtn" class="primary-btn" type="button">开始能力测评</button>
+        </div>
+        <section class="coach-section">
+          <header><div><span>ABILITY MAP</span><h3>五项能力</h3></div><small id="coachAssessmentTime">等待首次测评</small></header>
+          <div id="coachAbilityGrid" class="coach-ability-grid"></div>
+        </section>
+        <div class="coach-columns">
+          <section class="coach-section">
+            <header><div><span>WEAK POINTS</span><h3>薄弱项</h3></div><strong id="coachWeakCount">0项</strong></header>
+            <div id="coachWeaknessList" class="coach-list"></div>
+          </section>
+          <section class="coach-section">
+            <header><div><span>NEXT STEPS</span><h3>推荐路线</h3></div><strong>按优先级</strong></header>
+            <div id="coachRouteList" class="coach-list"></div>
+          </section>
+        </div>
+        <section class="coach-section coach-mistake-section">
+          <header><div><span>RECENT REVIEW</span><h3>最近错误归因</h3></div><button id="coachClearMistakesBtn" class="secondary-btn" type="button">清空记录</button></header>
+          <div id="coachMistakeList" class="coach-mistake-list"></div>
+        </section>
+      </section>
+
+      <section id="coachAssessment" class="coach-assessment" hidden>
+        <header><div><span id="coachQuestionCategory">方向基础</span><h3 id="coachQuestionCounter">第 1 / 10 题</h3></div><strong id="coachAssessmentProgress">10%</strong></header>
+        <div class="coach-progress"><i id="coachAssessmentBar"></i></div>
+        <p id="coachQuestionText" class="coach-question"></p>
+        <div id="coachQuestionChoices" class="coach-choices"></div>
+        <p id="coachQuestionFeedback" class="coach-feedback" aria-live="polite"></p>
+        <footer><button id="coachExitAssessmentBtn" class="secondary-btn" type="button">暂时退出</button><button id="coachNextQuestionBtn" class="primary-btn" type="button" disabled>下一题</button></footer>
+      </section>
+    </section>
+
+    <section id="page-field" class="page field-page" hidden>
+      <header class="field-header">
+        <div><span>FIELD WORKBENCH</span><h2>现场工作台</h2><p>测量、复测和项目记录集中在一个页面。</p></div>
+        <button id="fieldBackBtn" class="secondary-btn" type="button">返回首页</button>
+      </header>
+      <div class="field-project-strip"><label>当前项目<select id="fieldProjectSelect"></select></label><div><span>记录统计</span><strong id="fieldProjectStats">0条 · 0条超差</strong></div></div>
+      <div class="field-launch-grid">
+        <button type="button" data-field-page="calc"><b>算</b><span>工程计算</span></button>
+        <button type="button" data-field-page="glossary"><b>查</b><span>资料速查</span></button>
+        <button type="button" data-field-page="import"><b>图</b><span>识别图纸</span></button>
+        <button type="button" data-field-page="trainer"><b>3D</b><span>核对走向</span></button>
+      </div>
+      <div class="field-layout">
+        <section class="field-entry-panel">
+          <header><span>NEW RECORD</span><h3>新增测量记录</h3></header>
+          <div class="field-form-grid">
+            <label>记录类型<select id="fieldRecordType"><option>管口</option><option>坐标点</option><option>支架</option><option>焊口</option><option>标高</option><option>其他</option></select></label>
+            <label>位号 / 点号<input id="fieldRecordTag" type="text" maxlength="30" placeholder="例如 N1、S-08"></label>
+            <label>设计值<input id="fieldDesignValue" type="number" step="0.1" placeholder="可不填"></label>
+            <label>实测值<input id="fieldActualValue" type="number" step="0.1" placeholder="可不填"></label>
+            <label>允许偏差 ±<input id="fieldTolerance" type="number" min="0" step="0.1" value="3"></label>
+            <label>单位<select id="fieldRecordUnit"><option>mm</option><option>°</option><option>mm/m</option><option>%</option></select></label>
+            <label>E 坐标<input id="fieldRecordE" type="number" step="0.1" placeholder="可不填"></label>
+            <label>N 坐标<input id="fieldRecordN" type="number" step="0.1" placeholder="可不填"></label>
+            <label>EL 标高<input id="fieldRecordEL" type="number" step="0.1" placeholder="可不填"></label>
+            <label class="field-note-label">备注<textarea id="fieldRecordNote" rows="3" maxlength="160" placeholder="位置、图号、复测条件或处理情况"></textarea></label>
+          </div>
+          <label class="field-recheck-toggle"><input id="fieldNeedsRecheck" type="checkbox"><span>保存后标记为待复测</span></label>
+          <button id="fieldSaveRecordBtn" class="primary-btn" type="button">保存记录</button>
+          <p id="fieldFormMessage" class="status-line" aria-live="polite"></p>
+        </section>
+        <section class="field-record-panel">
+          <header><div><span>PROJECT RECORDS</span><h3>项目记录</h3></div><div><button id="fieldExportBtn" class="secondary-btn" type="button">导出报告</button><button id="fieldClearBtn" class="secondary-btn danger-btn" type="button">清空项目</button></div></header>
+          <nav class="field-filter-tabs" aria-label="记录筛选"><button class="is-active" type="button" data-field-filter="all">全部</button><button type="button" data-field-filter="out">超差</button><button type="button" data-field-filter="recheck">待复测</button></nav>
+          <div id="fieldRecordList" class="field-record-list"></div>
+        </section>
+      </div>
     </section>
 
     <section id="page-profile" class="page profile-page" hidden>
@@ -696,14 +1386,33 @@
   </main>
 
   <nav class="mobile-bottom-nav" aria-label="手机主导航">
-    <button type="button" data-mobile-page="modules"><b>学</b><span>学习</span></button>
-    <button type="button" class="is-active" data-mobile-page="trainer"><b>图</b><span>练图</span></button>
+    <button type="button" class="is-active" data-mobile-page="home"><b>首</b><span>首页</span></button>
+    <button type="button" data-mobile-page="trainer"><b>图</b><span>练图</span></button>
     <button type="button" data-mobile-page="calc"><b>算</b><span>计算</span></button>
     <button type="button" data-mobile-page="glossary"><b>查</b><span>资料</span></button>
     <button type="button" data-mobile-page="profile"><b>我</b><span>我的</span></button>
   </nav>
 
   <button id="quickCalcBtn" class="quick-calc-launch" type="button" aria-label="打开工程计算器" title="打开工程计算器">▦</button>
+  <div id="globalSearchOverlay" class="global-search-overlay" hidden>
+    <section id="globalSearchDialog" class="global-search-dialog" role="dialog" aria-modal="true" aria-labelledby="globalSearchTitle">
+      <header>
+        <div><span>GLOBAL SEARCH</span><h2 id="globalSearchTitle">全局搜索</h2></div>
+        <button id="globalSearchCloseBtn" type="button" aria-label="关闭搜索">×</button>
+      </header>
+      <label class="global-search-input"><span class="sr-only">搜索关键词</span><input id="globalSearchInput" type="search" autocomplete="off" placeholder="搜索 WN、BOP、三通、A105、坡度、DN100…"><kbd>Ctrl F</kbd></label>
+      <nav id="globalSearchFilters" class="global-search-filters" aria-label="搜索分类">
+        <button class="is-active" type="button" data-global-filter="all">全部</button>
+        <button type="button" data-global-filter="abbr">缩写</button>
+        <button type="button" data-global-filter="reference">图鉴</button>
+        <button type="button" data-global-filter="calculator">计算</button>
+        <button type="button" data-global-filter="size">管径</button>
+      </nav>
+      <div class="global-search-summary"><span id="globalSearchCount">输入关键词开始搜索</span><span>Esc关闭</span></div>
+      <div id="globalSearchResults" class="global-search-results"></div>
+      <p id="globalSearchEmpty" class="global-search-empty" hidden>没有找到结果，请尝试英文代号、中文名称、材料牌号或标准号。</p>
+    </section>
+  </div>
   <div id="quickCalcOverlay" class="quick-calc-overlay" hidden></div>
   <aside id="quickCalcDrawer" class="quick-calc-drawer" aria-label="全局工程计算器" hidden>
     <header>
@@ -767,9 +1476,18 @@
     </footer>
   </aside>
 
-  <script src="vendor/three.min.js"></script>
-  <script src="vendor/OrbitControls.js"></script>
   <script src="vendor/expr-eval.min.js"></script>
-  <script src="app.js"></script>
+  <script src="resource-loader.js?v=1.18.0"></script>
+  <script src="app.js?v=1.18.0"></script>
+  <script src="drawing-import.js?v=1.18.0"></script>
+  <script src="exam-tools.js?v=1.18.0"></script>
+  <script src="spatial-training.js?v=1.18.0"></script>
+  <script src="reference-library.js?v=1.18.0"></script>
+  <script src="field-tools.js?v=1.18.0"></script>
+  <script src="global-search.js?v=1.18.0"></script>
+  <script src="home-dashboard.js?v=1.18.0"></script>
+  <script src="micro-lessons.js?v=1.18.0"></script>
+  <script src="learning-coach.js?v=1.18.0"></script>
+  <script src="field-workbench.js?v=1.18.0"></script>
 </body>
 </html>
