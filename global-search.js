@@ -2,11 +2,12 @@
   'use strict';
 
   const get = (id) => document.getElementById(id);
-  const categoryLabels = { abbr: '缩写', reference: '图鉴', calculator: '计算', size: '管径', page: '页面' };
+  const categoryLabels = { abbr: '缩写', term: '术语', reference: '图鉴', calculator: '计算', size: '管径', page: '页面' };
   let activeFilter = 'all';
   let activeResultIndex = -1;
   let currentResults = [];
   let previousFocus = null;
+  let cachedSearchIndex = null;
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
@@ -17,13 +18,14 @@
   }
 
   function searchIndex() {
+    if (cachedSearchIndex) return cachedSearchIndex;
     const entries = [];
     (window.PipeAbbreviationData || []).forEach((item) => entries.push({
       id: `abbr-${item.code}`, category: 'abbr', code: item.code, title: item.english, description: item.chinese,
       keywords: `${item.code} ${item.english} ${item.chinese}`
     }));
     (window.PipeReferenceLibrary?.items || []).forEach((item, index) => entries.push({
-      id: `reference-${index}`, category: 'reference', code: item.code, title: item.name, description: `${item.description} ${item.identify}`,
+      id: `reference-${index}`, category: item.category === 'term' ? 'term' : 'reference', code: item.code, title: item.name, description: `${item.description} ${item.identify}`,
       keywords: [item.code, item.name, item.description, item.identify, item.standard, item.note, ...(item.tags || [])].join(' ')
     }));
     document.querySelectorAll('.calc-tab').forEach((tab) => {
@@ -42,26 +44,29 @@
       id: `page-${tab.dataset.page}`, category: 'page', code: '', title: tab.textContent.trim(), description: `打开${tab.textContent.trim()}页面`, keywords: tab.textContent.trim(), page: tab.dataset.page
     }));
     entries.push({ id: 'page-lessons', category: 'page', code: '', title: '图文动画课', description: '方向坐标、单线图变3D、管件方向、下料和考试图拆解', keywords: '微课 图文 动画 示例 教程 学习', page: 'lessons' });
-    return entries;
+    cachedSearchIndex = entries.map((entry) => {
+      const codeLower = entry.code.toLowerCase();
+      const titleLower = entry.title.toLowerCase();
+      const haystack = `${entry.code} ${entry.title} ${entry.description} ${entry.keywords || ''}`.toLowerCase();
+      return { ...entry, codeLower, titleLower, haystack, normalizedCode: normalize(codeLower), normalizedTitle: normalize(titleLower), normalizedHaystack: normalize(haystack), tokens: haystack.split(/[^a-z0-9]+/).filter(Boolean) };
+    });
+    return cachedSearchIndex;
   }
 
   function scoreEntry(entry, query) {
     const raw = query.toLowerCase();
     const compact = normalize(query);
-    const code = entry.code.toLowerCase();
-    const title = entry.title.toLowerCase();
-    const haystack = `${entry.code} ${entry.title} ${entry.description} ${entry.keywords || ''}`.toLowerCase();
-    const normalizedHaystack = normalize(haystack);
-    if (code === raw || normalize(code) === compact) return 120;
-    if (code.startsWith(raw) || normalize(code).startsWith(compact)) return 105;
-    if (title === raw || normalize(title) === compact) return 100;
-    if (title.startsWith(raw) || normalize(title).startsWith(compact)) return 90;
+    const code = entry.codeLower;
+    const title = entry.titleLower;
+    if (code === raw || entry.normalizedCode === compact) return 120;
+    if (code.startsWith(raw) || entry.normalizedCode.startsWith(compact)) return 105;
+    if (title === raw || entry.normalizedTitle === compact) return 100;
+    if (title.startsWith(raw) || entry.normalizedTitle.startsWith(compact)) return 90;
     if (/^[a-z]{1,3}$/i.test(query)) {
-      const tokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
-      return tokens.includes(raw) ? 80 : 0;
+      return entry.tokens.includes(raw) ? 80 : 0;
     }
-    if (haystack.includes(raw)) return 75;
-    if (compact && normalizedHaystack.includes(compact)) return 60;
+    if (entry.haystack.includes(raw)) return 75;
+    if (compact && entry.normalizedHaystack.includes(compact)) return 60;
     return 0;
   }
 
@@ -143,7 +148,7 @@
     window.dispatchEvent(new CustomEvent('pipe-search-used', { detail: { category: entry.category, code: entry.code, title: entry.title, description: entry.description } }));
     closeSearch();
     if (entry.category === 'abbr') showGlossaryDetail(entry);
-    else if (entry.category === 'reference') window.PipeReferenceLibrary?.showItem(entry.code);
+    else if (entry.category === 'reference' || entry.category === 'term') window.PipeReferenceLibrary?.showItem(entry.code, entry.category === 'term' ? 'term' : '');
     else if (entry.category === 'calculator') openCalculator(entry);
     else if (entry.category === 'size') openSize(entry);
     else if (entry.category === 'page') {

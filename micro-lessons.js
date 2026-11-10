@@ -185,6 +185,12 @@
     window.scrollTo(0,0);
   }
 
+  function openLesson(lessonId) {
+    const index = lessons.findIndex((lesson) => lesson.id === lessonId);
+    window.PipeTrainerApp?.navigate?.('lessons');
+    selectLesson(index >= 0 ? index : 0);
+  }
+
   function stopPlayback() {
     playing = false;
     clearInterval(playTimer);
@@ -255,4 +261,5 @@
   renderProgress();
   renderStep();
   renderQuiz();
+  window.PipeMicroLessons = { openLesson, lessons: lessons.map((lesson) => ({ id: lesson.id, title: lesson.title })) };
 })();

@@ -44,7 +44,19 @@
     { category: 'standard', code: 'ASME B16.47-2025', name: 'NPS 26～60大直径钢制法兰', visual: 'standard-flange', description: '覆盖NPS 26至60大直径钢制法兰。', identify: '大口径时先确认采用Series A还是Series B及项目指定版本。', standard: 'ASME现行版本', note: '不能直接套用B16.5的小口径尺寸表。', tags: ['ASME', '大口径法兰', 'Series A', 'Series B'] }
   ];
 
-  const categoryNames = { fitting: '管件', flange: '法兰', facing: '密封面', material: '材料', standard: '标准' };
+  const terminologyItems = (window.PipeTerminologyData?.items || []).map((term) => {
+    const note = term.note || '缩写和叫法可能随项目变化，优先查本项目图例与规格书。';
+    const searchText = [term.code, term.english, term.chinese, term.categoryName, note].join(' ').toLowerCase().replace(/[\s&./_\-()·:,，：]+/g, '');
+    return {
+      category: 'term', termCategory: term.category, termCategoryName: term.categoryName,
+      code: term.code, name: term.chinese, english: term.english, visual: 'terminology',
+      description: term.english, identify: `${term.categoryName}；${term.chinese}`,
+      standard: term.source, note, searchText, tags: [term.categoryName, term.english, term.chinese]
+    };
+  });
+  items.push(...terminologyItems);
+
+  const categoryNames = { fitting: '管件', flange: '法兰', facing: '密封面', material: '材料', term: '专业术语', standard: '标准' };
   const symbolBasics = [
     { id: 'pipe-up', name: '管口向上', kind: 'pipe', direction: 'up', detail: '开口朝EL+；常见画法会用圆口及填充方向提示。' },
     { id: 'pipe-down', name: '管口向下', kind: 'pipe', direction: 'down', detail: '开口朝EL-；必须结合本项目图例辨认圆口填充。' },
@@ -56,6 +68,7 @@
     { id: 'tee-south', name: '三通支口向南', kind: 'tee', direction: 'south', detail: '主管W↔E，支口朝N-；等轴图中通常画向右上。' }
   ];
   let activeCategory = 'basics';
+  let activeTermCategory = 'all';
   let teeDirection = 'up';
   let teeType = 'equal';
   let teeStandard = 'gb';
@@ -129,12 +142,33 @@
     return svg(`<path class="ref-metal" d="M52 15 H190 L215 40 V115 H52 Z"/><path class="ref-detail" d="M190 15 V40 H215"/><line class="ref-thread" x1="75" y1="55" x2="190" y2="55"/><line class="ref-thread" x1="75" y1="72" x2="190" y2="72"/><line class="ref-thread" x1="75" y1="89" x2="165" y2="89"/><text x="132" y="35" text-anchor="middle">${escapeHtml(item.code)}</text>`, item.name);
   }
 
+  function terminologySvg(item) {
+    return svg(`<path class="ref-metal" d="M48 18 H212 V112 H48 Z"/><line class="ref-thread" x1="70" y1="52" x2="190" y2="52"/><line class="ref-thread" x1="70" y1="72" x2="190" y2="72"/><text x="130" y="43" text-anchor="middle">${escapeHtml(item.code)}</text><text x="130" y="94" text-anchor="middle">${escapeHtml(item.termCategoryName)}</text>`, `${item.code} ${item.name}`);
+  }
+
   function referenceVisual(item) {
     if (item.category === 'fitting') return fittingSvg(item.visual, item.name);
     if (item.category === 'flange') return `<div class="reference-dual-visual"><div><span>实物外形</span>${flangeExteriorSvg(item.visual, item.name)}</div><div><span>连接剖面</span>${flangeSvg(item.visual, item.name)}</div></div>`;
     if (item.category === 'facing') return facingSvg(item.visual, item.name);
     if (item.category === 'material') return materialSvg(item.visual, item.name);
+    if (item.category === 'term') return terminologySvg(item);
     return standardSvg(item);
+  }
+
+  function renderTerminologyTabs() {
+    const categories = window.PipeTerminologyData?.categoryNames || {};
+    document.getElementById('terminologyCategoryTabs').innerHTML = `<button class="is-active" type="button" data-term-category="all">全部</button>${Object.entries(categories).map(([key, label]) => `<button type="button" data-term-category="${escapeHtml(key)}">${escapeHtml(label)}</button>`).join('')}`;
+  }
+
+  function renderTerminology(query = document.getElementById('referenceSearch').value.trim()) {
+    const compact = query.toLowerCase().replace(/[\s&./_\-()·:,，：]+/g, '');
+    const filtered = terminologyItems.filter((item) => {
+      if (activeTermCategory !== 'all' && item.termCategory !== activeTermCategory) return false;
+      if (!compact) return true;
+      return item.searchText.includes(compact);
+    });
+    document.getElementById('terminologyCount').textContent = `${filtered.length}项`;
+    document.getElementById('terminologyList').innerHTML = filtered.length ? filtered.map((item) => `<div class="terminology-row" data-term-code="${escapeHtml(item.code)}"><code>${escapeHtml(item.code)}</code><span>${escapeHtml(item.english)}</span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.termCategoryName)}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</small></div></div>`).join('') : '<div class="terminology-empty">没有匹配术语，请更换缩写、英文或中文关键词。</div>';
   }
 
   function symbolBasicSvg(item) {
@@ -166,9 +200,18 @@
 
   function renderCards() {
     const query = document.getElementById('referenceSearch').value.trim().toLowerCase();
+    if (activeCategory === 'term') {
+      document.getElementById('referenceResultHeading').hidden = true;
+      document.getElementById('referenceCardGrid').hidden = true;
+      document.getElementById('referenceEmpty').hidden = true;
+      renderTerminology(query);
+      updateReferenceSections(query);
+      return;
+    }
     const basicsOnly = activeCategory === 'basics' && !query;
     const filtered = items.filter((item) => {
       if (basicsOnly) return false;
+      if (!query && activeCategory === 'all' && item.category === 'term') return false;
       if (!query && activeCategory !== 'all' && item.category !== activeCategory) return false;
       const haystack = [item.code, item.name, item.description, item.identify, item.standard, item.note, ...item.tags].join(' ').toLowerCase();
       return !query || haystack.includes(query);
@@ -196,6 +239,7 @@
     document.getElementById('drawingSymbolBasics').hidden = !showBasics;
     document.getElementById('teeOrientationTool').hidden = !showBasics;
     document.getElementById('elevationSizeGrid').hidden = !showBasics;
+    document.getElementById('terminologyLibrary').hidden = activeCategory !== 'term';
   }
 
   function renderTee() {
@@ -233,6 +277,13 @@
       document.querySelectorAll('[data-reference-category]').forEach((item) => item.classList.toggle('is-active', item === button));
       renderCards();
     }));
+    document.getElementById('terminologyCategoryTabs').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-term-category]');
+      if (!button) return;
+      activeTermCategory = button.dataset.termCategory;
+      document.querySelectorAll('[data-term-category]').forEach((item) => item.classList.toggle('is-active', item === button));
+      renderTerminology();
+    });
     document.querySelectorAll('[data-tee-direction]').forEach((button) => button.addEventListener('click', () => {
       teeDirection = button.dataset.teeDirection;
       document.querySelectorAll('[data-tee-direction]').forEach((item) => item.classList.toggle('is-active', item === button));
@@ -250,25 +301,44 @@
     }));
   }
 
-  function showReferenceItem(code) {
-    const item = items.find((entry) => entry.code === code) || items.find((entry) => entry.code.includes(code));
+  function showReferenceItem(code, preferredCategory = '') {
+    const item = items.find((entry) => entry.code === code && (!preferredCategory || entry.category === preferredCategory))
+      || items.find((entry) => entry.code.includes(code) && (!preferredCategory || entry.category === preferredCategory))
+      || items.find((entry) => entry.code === code)
+      || items.find((entry) => entry.code.includes(code));
     if (!item) return false;
     activeCategory = item.category;
+    if (item.category === 'term') {
+      activeTermCategory = 'all';
+      document.querySelectorAll('[data-term-category]').forEach((button) => button.classList.toggle('is-active', button.dataset.termCategory === 'all'));
+    }
     document.querySelectorAll('[data-reference-category]').forEach((button) => button.classList.toggle('is-active', button.dataset.referenceCategory === activeCategory));
     document.getElementById('referenceSearch').value = item.code;
     renderCards();
     document.querySelector('[data-page="glossary"]')?.click();
     setTimeout(() => {
-      const card = document.querySelector('.reference-card');
-      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card?.classList.add('global-search-target');
-      setTimeout(() => card?.classList.remove('global-search-target'), 1700);
+      const target = item.category === 'term' ? document.querySelector('.terminology-row') : document.querySelector('.reference-card');
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.classList.add('global-search-target');
+      setTimeout(() => target?.classList.remove('global-search-target'), 1700);
     }, 50);
     return true;
   }
 
-  window.PipeReferenceLibrary = { items: items.map((item) => ({ ...item, tags: item.tags.slice() })), showItem: showReferenceItem };
+  function openCategory(category, options = {}) {
+    activeCategory = document.querySelector(`[data-reference-category="${category}"]`) ? category : 'basics';
+    if (activeCategory === 'term') activeTermCategory = options.termCategory || 'all';
+    document.querySelectorAll('[data-reference-category]').forEach((button) => button.classList.toggle('is-active', button.dataset.referenceCategory === activeCategory));
+    document.querySelectorAll('[data-term-category]').forEach((button) => button.classList.toggle('is-active', button.dataset.termCategory === activeTermCategory));
+    document.getElementById('referenceSearch').value = options.query || '';
+    renderCards();
+    window.PipeTrainerApp?.navigate?.('glossary');
+    setTimeout(() => document.getElementById(activeCategory === 'term' ? 'terminologyLibrary' : 'referenceAtlasTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
+  }
 
+  window.PipeReferenceLibrary = { items: items.map((item) => ({ ...item, tags: item.tags.slice() })), showItem: showReferenceItem, openCategory };
+
+  renderTerminologyTabs();
   bindReferenceEvents();
   renderSymbolBasics();
   renderTee();

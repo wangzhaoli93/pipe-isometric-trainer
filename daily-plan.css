@@ -1,0 +1,57 @@
+.daily-plan-summary { display: grid; grid-template-columns: 1fr 1.25fr auto; gap: 24px; align-items: center; margin-top: 20px; padding: 18px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.daily-plan-summary > div { display: grid; gap: 5px; }
+.daily-plan-summary span { color: var(--muted); font-size: 11px; }
+.daily-plan-summary strong { font-size: 19px; font-weight: 500; }
+.daily-plan-summary small { color: var(--muted); }
+.daily-plan-progress { height: 7px; background: var(--surface-alt); }
+.daily-plan-progress i { display: block; width: 0; height: 100%; background: var(--green); }
+.daily-plan-stage-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px 0; }
+.daily-stage-stat { display: grid; gap: 5px; padding: 10px 12px; border-left: 3px solid var(--border); background: var(--surface); }
+.daily-stage-stat.is-current { border-left-color: var(--primary); }
+.daily-stage-stat.is-complete { border-left-color: var(--green); }
+.daily-stage-stat span { color: var(--muted); font-size: 11px; }
+.daily-stage-stat strong { font-weight: 500; }
+.daily-stage-stat small { color: var(--muted); }
+.daily-plan-stages { border-top: 1px solid var(--border); }
+.daily-stage { border-bottom: 1px solid var(--border); }
+.daily-stage > summary { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; min-height: 66px; cursor: pointer; list-style: none; }
+.daily-stage > summary::-webkit-details-marker { display: none; }
+.daily-stage > summary b { color: var(--primary); font-size: 18px; font-weight: 500; }
+.daily-stage > summary span { display: grid; gap: 3px; }
+.daily-stage > summary strong { font-weight: 500; }
+.daily-stage > summary small { color: var(--muted); }
+.daily-stage > summary em { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; }
+.daily-stage > summary::after { content: '＋'; color: var(--muted); }
+.daily-stage[open] > summary::after { content: '−'; }
+.daily-stage > summary em { margin-left: auto; }
+.daily-stage-list { padding: 0 0 12px 66px; }
+.daily-plan-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 72px; padding: 9px 0; border-top: 1px solid var(--border); }
+.daily-plan-row.is-next { background: linear-gradient(90deg, var(--primary-soft), transparent 65%); }
+.daily-plan-row.is-complete { opacity: .7; }
+.daily-day-badge { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 50%; color: var(--muted); font-size: 11px; }
+.daily-plan-row.is-next .daily-day-badge { border-color: var(--primary); color: var(--primary); }
+.daily-plan-row.is-complete .daily-day-badge { border-color: var(--green); background: var(--green); color: white; }
+.daily-plan-copy { display: grid; gap: 4px; }
+.daily-plan-copy strong { font-weight: 500; }
+.daily-plan-copy span { color: var(--muted); line-height: 1.5; }
+.daily-plan-copy small { color: var(--primary); }
+.daily-plan-actions { display: flex; align-items: center; gap: 6px; }
+.daily-plan-actions button { min-height: 36px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
+.daily-plan-actions .daily-start-btn { border-color: var(--primary); color: var(--primary); }
+.daily-plan-actions .daily-complete-btn[aria-pressed="true"] { border-color: var(--green); color: var(--green); }
+.ability-checklist { margin-top: 28px; border-top: 1px solid var(--border); }
+.ability-checklist > summary { display: flex; justify-content: space-between; gap: 12px; padding: 16px 0; cursor: pointer; }
+.ability-checklist > summary span { font-weight: 500; }
+.ability-checklist > summary small { color: var(--muted); }
+.ability-checklist .progress-footer { position: static; }
+
+@media (max-width: 760px) {
+  .daily-plan-summary { grid-template-columns: 1fr; gap: 13px; }
+  .daily-plan-summary button { width: 100%; min-height: 44px; }
+  .daily-plan-stage-summary { grid-template-columns: 1fr 1fr; }
+  .daily-stage > summary { grid-template-columns: 42px minmax(0, 1fr) auto auto; }
+  .daily-stage-list { padding-left: 0; }
+  .daily-plan-row { grid-template-columns: 38px minmax(0, 1fr); gap: 8px; }
+  .daily-plan-actions { grid-column: 2; justify-content: flex-start; }
+  .daily-plan-actions button { flex: 1; }
+}

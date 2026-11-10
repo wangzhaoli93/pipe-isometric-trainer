@@ -5,9 +5,30 @@
 .reference-atlas-header p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.6; }
 .reference-search { display: grid; gap: 6px; color: var(--muted); font-size: 11px; }
 .reference-search input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
-.reference-tabs { position: sticky; top: 0; z-index: 12; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 18px; padding: 3px; background: var(--surface-alt); box-shadow: 0 1px 0 var(--border); }
+.reference-tabs { position: sticky; top: 0; z-index: 12; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; margin-top: 18px; padding: 3px; background: var(--surface-alt); box-shadow: 0 1px 0 var(--border); }
 .reference-tabs button { min-height: 38px; border: 0; border-radius: 3px; background: transparent; color: var(--muted); }
 .reference-tabs button.is-active { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px var(--shadow); }
+.terminology-library { padding: 22px 0; border-bottom: 1px solid var(--border); }
+.terminology-library > header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.terminology-library > header span { color: var(--primary); font-size: 11px; }
+.terminology-library > header h4 { margin: 4px 0 5px; font-size: 18px; font-weight: 500; }
+.terminology-library > header p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.55; }
+.terminology-library > header strong { color: var(--muted); font-weight: 400; white-space: nowrap; }
+.terminology-category-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding: 16px 0 12px; }
+.terminology-category-tabs button { min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--muted); }
+.terminology-category-tabs button.is-active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.terminology-table-wrap { border-top: 1px solid var(--border); }
+.terminology-table-head, .terminology-row { display: grid; grid-template-columns: minmax(110px, .6fr) minmax(180px, 1fr) minmax(260px, 1.35fr); gap: 14px; align-items: center; }
+.terminology-table-head { min-height: 38px; padding: 0 10px; background: var(--surface-alt); color: var(--muted); font-size: 11px; }
+.terminology-list { max-height: 680px; overflow: auto; }
+.terminology-row { width: 100%; min-height: 56px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: transparent; text-align: left; }
+.terminology-row code { color: var(--primary); overflow-wrap: anywhere; }
+.terminology-row > span { color: var(--text); overflow-wrap: anywhere; }
+.terminology-row > div { display: grid; gap: 3px; }
+.terminology-row strong { font-weight: 500; }
+.terminology-row small { color: var(--muted); line-height: 1.45; }
+.terminology-empty { padding: 32px 10px; color: var(--muted); text-align: center; }
+.terminology-source { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 .drawing-symbol-basics { margin-top: 20px; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .drawing-symbol-basics > header { display: grid; grid-template-columns: minmax(240px, .7fr) minmax(320px, 1.3fr); gap: 24px; align-items: end; margin-bottom: 14px; }
 .drawing-symbol-basics header span, .elevation-size-grid header span { color: var(--orange); font-size: 11px; }
@@ -115,6 +136,12 @@
   .reference-atlas-header { grid-template-columns: 1fr; gap: 14px; }
   .reference-tabs { display: flex; overflow-x: auto; overscroll-behavior-inline: contain; }
   .reference-tabs button { flex: 0 0 auto; min-width: 88px; }
+  .terminology-library > header { align-items: flex-start; }
+  .terminology-category-tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .terminology-category-tabs button { flex: 0 0 auto; }
+  .terminology-table-head { display: none; }
+  .terminology-row { grid-template-columns: minmax(88px, .55fr) minmax(0, 1fr); gap: 5px 10px; }
+  .terminology-row > div { grid-column: 1 / -1; padding-top: 3px; }
   .reference-card-grid { grid-template-columns: 1fr; }
   .drawing-symbol-basics > header, .elevation-size-grid { grid-template-columns: 1fr; }
   .symbol-basics-grid { grid-template-columns: 1fr 1fr; }

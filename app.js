@@ -1429,16 +1429,61 @@
   }
 
   function profileDataBases() {
-    return ['pipe-route-progress', 'pipe-module-progress', 'pipe-favorite-presets', 'pipe-wrong-questions', 'pipe-quick-history', 'pipe-spatial-training-v1', 'pipe-micro-lessons', 'pipe-home-workbench', 'pipe-trainer-draft', 'pipe-learning-coach', 'pipe-field-records'];
+    return ['pipe-route-progress', 'pipe-daily-plan', 'pipe-module-progress', 'pipe-favorite-presets', 'pipe-wrong-questions', 'pipe-quick-history', 'pipe-spatial-training-v1', 'pipe-micro-lessons', 'pipe-home-workbench', 'pipe-trainer-draft', 'pipe-learning-coach', 'pipe-field-records'];
+  }
+
+  function validString(value, maximum = 200) {
+    return typeof value === 'string' && value.length <= maximum;
+  }
+
+  function validOptionalNumber(value) {
+    return value === null || value === undefined || Number.isFinite(Number(value));
+  }
+
+  function validUniqueList(value, allowed, maximum) {
+    return Array.isArray(value) && value.length <= maximum && new Set(value).size === value.length && value.every((item) => typeof item === 'string' && allowed.has(item));
+  }
+
+  function validateImportedProfileData(base, value, profileName) {
+    const invalid = (label) => { throw new Error(`${profileName} 的${label}数据格式不正确`); };
+    if (base === 'pipe-daily-plan') {
+      const valid = Array.isArray(value) && value.length <= 30 && new Set(value).size === value.length && value.every((day) => Number.isInteger(day) && day >= 1 && day <= 30);
+      if (!valid) invalid('30天计划');
+    } else if (base === 'pipe-route-progress') {
+      const allowed = new Set(['axis', 'delta', 'shadow', 'iso-axis', 'fittings', 'flange', 'valves', 'rating', 'line-follow', 'elevation', 'weld', 'bom', 'takeout', 'support', 'sequence', 'safety']);
+      if (!validUniqueList(value, allowed, 16)) invalid('基础能力清单');
+    } else if (base === 'pipe-module-progress') {
+      const allowed = new Set(Object.values(trainingTracks).flatMap((track) => track.lessons.map((lesson) => lesson.id)));
+      if (!validUniqueList(value, allowed, allowed.size)) invalid('专业课程');
+    } else if (base === 'pipe-favorite-presets') {
+      if (!validUniqueList(value, new Set(Object.keys(presets)), Object.keys(presets).length)) invalid('收藏案例');
+    } else if (base === 'pipe-micro-lessons') {
+      if (!validUniqueList(value, new Set(['directions', 'iso3d', 'fitting-direction', 'cut-length', 'exam-breakdown']), 5)) invalid('微课');
+    } else if (base === 'pipe-wrong-questions') {
+      const valid = Array.isArray(value) && value.length <= 50 && value.every((item) => item && typeof item === 'object' && validString(item.id, 100) && validString(item.label, 300) && validString(item.destination || 'modules', 30));
+      if (!valid) invalid('错题');
+    } else if (base === 'pipe-quick-history') {
+      const valid = Array.isArray(value) && value.length <= 20 && value.every((item) => item && typeof item === 'object' && validString(item.expression, 200) && validString(String(item.result ?? ''), 200));
+      if (!valid) invalid('快速计算历史');
+    } else if (base === 'pipe-field-records') {
+      const valid = Array.isArray(value) && value.length <= 500 && value.every((item) => item && typeof item === 'object' && validString(item.id, 80) && validString(item.projectId, 80) && validString(item.type, 20) && validString(item.tag, 30) && validString(item.unit, 12) && validString(item.note || '', 160) && [item.design, item.actual, item.tolerance, item.e, item.n, item.el].every(validOptionalNumber));
+      if (!valid) invalid('现场记录');
+    } else if (Array.isArray(value) && value.length > 1000) invalid(base);
+    return value;
+  }
+
+  function normalizedDailyPlan(value) {
+    if (!Array.isArray(value)) return [];
+    return Array.from(new Set(value.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 30))).sort((a, b) => a - b);
   }
 
   function renderProfilePage() {
     const select = document.getElementById('learnerProfileSelect');
     if (!select) return;
     select.innerHTML = learnerProfiles.map((profile) => `<option value="${escapeHtml(profile.id)}"${profile.id === activeProfileId ? ' selected' : ''}>${escapeHtml(profile.name)}</option>`).join('');
-    const route = readJson(profileKey('pipe-route-progress'), []);
+    const route = normalizedDailyPlan(readJson(profileKey('pipe-daily-plan'), []));
     const modules = readJson(profileKey('pipe-module-progress'), []);
-    document.getElementById('profileRouteStat').textContent = `${Array.isArray(route) ? route.length : 0} / 16`;
+    document.getElementById('profileRouteStat').textContent = `${Array.isArray(route) ? route.length : 0} / 30`;
     document.getElementById('profileModuleStat').textContent = `${Array.isArray(modules) ? modules.length : 0} / 20`;
     document.getElementById('profileFavoriteStat').textContent = String(favoritePresets.size);
     document.getElementById('profileWrongStat').textContent = String(wrongQuestionRecords.length);
@@ -1491,12 +1536,15 @@
     link.download = `pipe-learning-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 500);
+    const message = document.getElementById('profileMessage');
+    message.textContent = `学习数据已导出，文件大小 ${(blob.size / 1024 / 1024).toFixed(2)} MB。`;
+    message.className = 'status-line is-success';
   }
 
   function importLearningData(file) {
     const message = document.getElementById('profileMessage');
-    if (file.size > 1024 * 1024) {
-      message.textContent = '导入失败：文件不能超过 1 MB。';
+    if (file.size > 10 * 1024 * 1024) {
+      message.textContent = '导入失败：备份文件不能超过 10 MB。';
       message.className = 'status-line is-error';
       return;
     }
@@ -1522,18 +1570,19 @@
               : base === 'pipe-learning-coach' ? { version: 1, assessment: null, mistakes: [] }
               : [];
           let value = payload.data[profile.id]?.[base] ?? fallback;
+          value = validateImportedProfileData(base, value, profile.name);
           if (base === 'pipe-spatial-training-v1') {
             if (Array.isArray(value) && value.length === 0) value = fallback;
-            const validSpatial = value && typeof value === 'object' && !Array.isArray(value) && value.completed && typeof value.completed === 'object' && !Array.isArray(value.completed) && Array.isArray(value.wrong);
+            const validSpatial = value && typeof value === 'object' && !Array.isArray(value) && value.completed && typeof value.completed === 'object' && !Array.isArray(value.completed) && Object.keys(value.completed).length <= 36 && Object.values(value.completed).every((score) => Number.isFinite(Number(score)) && Number(score) >= 0 && Number(score) <= 100) && Array.isArray(value.wrong) && value.wrong.length <= 36 && value.wrong.every((id) => validString(id, 30));
             if (!validSpatial) throw new Error(`${profile.name} 的空间闯关数据格式不正确`);
           } else if (base === 'pipe-home-workbench') {
             if (Array.isArray(value) && value.length === 0) value = fallback;
-            const validWorkbench = value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.projects) && typeof value.activeProjectId === 'string' && Array.isArray(value.recents) && Array.isArray(value.searchHistory);
+            const validWorkbench = value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.projects) && value.projects.length > 0 && value.projects.length <= 100 && value.projects.every((project) => project && validString(project.id, 80) && validString(project.name, 30)) && validString(value.activeProjectId, 80) && value.projects.some((project) => project.id === value.activeProjectId) && Array.isArray(value.recents) && value.recents.length <= 60 && Array.isArray(value.searchHistory) && value.searchHistory.length <= 20;
             if (!validWorkbench) throw new Error(`${profile.name} 的项目本数据格式不正确`);
           } else if (base === 'pipe-trainer-draft') {
             if (value !== null && !validTrainerSnapshot(value)) throw new Error(`${profile.name} 的训练草稿格式不正确`);
           } else if (base === 'pipe-learning-coach') {
-            const validCoach = value && value.version === 1 && Array.isArray(value.mistakes) && (value.assessment === null || typeof value.assessment === 'object');
+            const validCoach = value && value.version === 1 && Array.isArray(value.mistakes) && value.mistakes.length <= 100 && value.mistakes.every((item) => item && validString(item.id, 100) && validString(item.label, 300) && validString(item.category, 30)) && (value.assessment === null || typeof value.assessment === 'object');
             if (!validCoach) throw new Error(`${profile.name} 的学习教练数据格式不正确`);
           } else if (!Array.isArray(value)) throw new Error(`${profile.name} 的 ${base} 数据格式不正确`);
           staged.set(profileKey(base, profile.id), JSON.stringify(value));
@@ -2807,6 +2856,7 @@
       if (trainerHistoryPending) finalizeTrainerHistory();
       else saveTrainerDraft();
     });
+    window.addEventListener('pipe-daily-plan-progress', renderProfilePage);
 
     const saved = readJson(profileKey('pipe-route-progress'), []);
     document.querySelectorAll('[data-task]').forEach((checkbox) => {
@@ -2870,6 +2920,30 @@
     back: navigateBack,
     getActivePage: () => activePage,
     ensureThreeReady,
+    openPreset(name) {
+      if (!presets[name]) return false;
+      activatePage('trainer');
+      setPreset(name);
+      return true;
+    },
+    openCalculator(mode) {
+      const tab = document.querySelector(`[data-calc-mode="${mode}"]`);
+      if (!tab) return false;
+      activatePage('calc');
+      tab.click();
+      return true;
+    },
+    openModule(track, lessonId = '') {
+      if (!trainingTracks[track]) return false;
+      activeTrainingTrack = track;
+      activeTrainingLesson = trainingTracks[track].lessons.some((lesson) => lesson.id === lessonId) ? lessonId : trainingTracks[track].lessons[0].id;
+      activeScenario = 0;
+      scenarioAnswered = false;
+      selectedScenarioAnswer = null;
+      renderTrainingModules();
+      activatePage('modules');
+      return true;
+    },
     startWirePractice() {
       randomChallenge();
       return copyPresetObject(state);
@@ -2883,6 +2957,12 @@
     },
     getActiveProfileId() {
       return activeProfileId || 'default';
+    },
+    readProfileData(base, fallback = null) {
+      return readJson(profileKey(base), fallback);
+    },
+    saveProfileData(base, value) {
+      return writeJson(profileKey(base), value);
     }
   };
 

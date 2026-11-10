@@ -596,6 +596,10 @@ select:focus-visible {
   .axis-key { display: none; }
 }
 
+@media (min-width: 901px) and (max-width: 1400px) {
+  .brand-block p, .orientation-btn { display: none; }
+}
+
 @media (max-width: 900px) {
   body { overflow: auto; }
   .appbar { height: auto; min-height: 62px; grid-template-columns: 1fr; padding: 10px 14px; gap: 8px; }

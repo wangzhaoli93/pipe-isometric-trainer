@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>管线空间训练器</title>
   <link rel="icon" href="icon-512.png">
-  <link rel="stylesheet" href="styles.css?v=1.18.0">
+  <link rel="stylesheet" href="styles.css?v=1.19.0">
   <link rel="stylesheet" href="drawing-import.css?v=1.18.2">
   <link rel="stylesheet" href="spatial-training.css?v=1.18.0">
-  <link rel="stylesheet" href="reference-library.css?v=1.18.0">
+  <link rel="stylesheet" href="reference-library.css?v=1.19.0">
   <link rel="stylesheet" href="field-tools.css?v=1.18.0">
   <link rel="stylesheet" href="global-search.css?v=1.18.0">
   <link rel="stylesheet" href="home-dashboard.css?v=1.18.0">
   <link rel="stylesheet" href="micro-lessons.css?v=1.18.0">
   <link rel="stylesheet" href="learning-coach.css?v=1.18.0">
   <link rel="stylesheet" href="field-workbench.css?v=1.18.0">
+  <link rel="stylesheet" href="daily-plan.css?v=1.20.0">
 </head>
 <body>
   <header class="appbar">
@@ -86,7 +87,7 @@
           <div><span>图文微课</span><strong id="homeMicroProgress">0 / 5</strong><div><i id="homeMicroBar"></i></div></div>
           <div><span>空间闯关</span><strong id="homeSpatialProgress">0 / 36</strong><div><i id="homeSpatialBar"></i></div></div>
           <div><span>专业课程</span><strong id="homeModuleProgress">0 / 20</strong><div><i id="homeModuleBar"></i></div></div>
-          <div><span>学习路线</span><strong id="homeRouteProgress">0 / 16</strong><div><i id="homeRouteBar"></i></div></div>
+          <div><span>30天计划</span><strong id="homeRouteProgress">0 / 30</strong><div><i id="homeRouteBar"></i></div></div>
         </div>
         <div class="home-learning-actions">
           <button type="button" data-home-page="coach"><b>测评</b><span>学习教练</span><small id="homeCoachSummary">首次测评生成路线</small></button>
@@ -148,13 +149,16 @@
         </main>
       </div>
       <section class="online-learning-section">
-        <header><div><span>OFFICIAL RESOURCES</span><h3>官方在线学习</h3></div><p>打开外部网页需要联网，内容版权归原发布方所有。</p></header>
+        <header><div><span>BILIBILI LEARNING</span><h3>B站中文学习视频</h3></div><p>打开视频需要联网；内容来自第三方UP主，可能调整或下架。</p></header>
         <div class="online-learning-grid">
-          <button type="button" data-learning-url="https://help.autodesk.com/cloudhelp/2026/ENU/Plant3D-UserGuide/files/GUID-B9085D60-CD0C-4160-8EEF-7B527D59E476.htm"><strong>Autodesk Plant 3D</strong><span>轴测图生成、标注和材料表</span></button>
-          <button type="button" data-learning-url="https://safst.swagelok.com/en/resources/video-resources/installation"><strong>Swagelok安装视频</strong><span>管接头、螺纹、PTFE和常见错误</span></button>
-          <button type="button" data-learning-url="https://www.victaulic.com/systems/installation-ready-technology/"><strong>Victaulic安装视频</strong><span>沟槽连接、卡箍和安装检查</span></button>
-          <button type="button" data-learning-url="https://www.millerwelds.com/en-US/resources/knowledge-hub"><strong>Miller焊接知识</strong><span>管道焊接、焊接符号与视频</span></button>
-          <button type="button" data-learning-url="https://www.asme.org/learning-development/find-course/essentials-b31-3-process-piping-code"><strong>ASME B31.3课程</strong><span>设计、材料、制造、检验与试压</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1xu4y1A73d/"><strong>单线图与材料分析</strong><span>管工李辰：轴测图识别、管线走向和材料分析</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1T44y1K7Xn/"><strong>轴测图基础讲解</strong><span>化工管道单线图与轴测图基础分析</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1cd4y1N734/"><strong>图标符号分析</strong><span>轴测图常见管件、焊口和图纸符号识别</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1h84y1f7Ny/"><strong>工地净料计算</strong><span>管工常见净料和下料长度计算方法</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV11V4y1A7mA/"><strong>马鞍口计算公式</strong><span>圆管马鞍口公式与放样计算思路</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1uG4y1F7uZ/"><strong>异径马鞍口原理</strong><span>异径支管马鞍口计算与原理分析</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1p7411w7pG/"><strong>氩弧焊枪基础</strong><span>管道氩弧焊枪的组装和基本使用</span></button>
+          <button type="button" data-learning-url="https://www.bilibili.com/video/BV1s54y1R7qs/"><strong>白钢管道氩弧打底</strong><span>不锈钢管道氩弧焊打底操作演示</span></button>
         </div>
       </section>
     </section>
@@ -1047,9 +1051,19 @@
     <section id="page-route" class="page learning-page" hidden>
       <header class="content-header">
         <h2>30 天单线图学习路线</h2>
-        <p>先建立坐标感，再识图，最后把图纸与现场安装动作对应起来。</p>
+        <p>每天45～60分钟，只完成一个主题；点击任务直接进入对应练习。</p>
       </header>
-      <div class="learning-layout">
+      <section class="daily-plan-summary">
+        <div><span>总体进度</span><strong id="dailyPlanProgressText">0 / 30</strong><div class="daily-plan-progress"><i id="dailyPlanProgressBar"></i></div></div>
+        <div><span>下一步</span><strong id="dailyPlanNextTitle">第1天 · 方向与坐标</strong><small id="dailyPlanNextMeta">第一阶段 · 看懂方向</small></div>
+        <button id="dailyPlanContinueBtn" class="primary-btn" type="button">开始第1天</button>
+      </section>
+      <div id="dailyPlanStageSummary" class="daily-plan-stage-summary"></div>
+      <div id="dailyPlanStages" class="daily-plan-stages"></div>
+
+      <details class="ability-checklist" open>
+        <summary><span>基础能力清单</span><small>补充核对16项能力</small></summary>
+        <div class="learning-layout">
         <section class="week-block">
           <div class="week-number">01</div>
           <div>
@@ -1090,11 +1104,12 @@
             <label class="task"><input type="checkbox" data-task="safety"> 能说明动火、吊装、试压的主要风险</label>
           </div>
         </section>
-      </div>
-      <footer class="progress-footer">
-        <div><span>完成度</span><strong id="routeProgressText">0 / 16</strong></div>
-        <div class="progress-track"><div id="routeProgressBar"></div></div>
-      </footer>
+        </div>
+        <footer class="progress-footer">
+          <div><span>能力清单</span><strong id="routeProgressText">0 / 16</strong></div>
+          <div class="progress-track"><div id="routeProgressBar"></div></div>
+        </footer>
+      </details>
     </section>
 
     <section id="page-glossary" class="page glossary-page" hidden>
@@ -1174,8 +1189,16 @@
           <button type="button" data-reference-category="flange">法兰</button>
           <button type="button" data-reference-category="facing">密封面</button>
           <button type="button" data-reference-category="material">常用材料</button>
+          <button type="button" data-reference-category="term">专业术语</button>
           <button type="button" data-reference-category="standard">标准</button>
         </nav>
+
+        <section id="terminologyLibrary" class="terminology-library" hidden aria-labelledby="terminologyTitle">
+          <header><div><span>PIPE TERMINOLOGY</span><h4 id="terminologyTitle">管道材料与施工术语</h4><p>按缩写、英文或中文检索。相同缩写在不同专业可能含义不同，现场必须以项目图例和规格书为准。</p></div><strong id="terminologyCount">0项</strong></header>
+          <nav id="terminologyCategoryTabs" class="terminology-category-tabs" aria-label="术语分类"></nav>
+          <div class="terminology-table-wrap"><div class="terminology-table-head"><span>代号</span><span>英文名称</span><span>中文名称与说明</span></div><div id="terminologyList" class="terminology-list"></div></div>
+          <p class="terminology-source">资料整理自用户提供的《管道材料专业术语》和《管道术语中英文对照表》。已校正常见拼写，未把来源文件中明显错误的释义直接写入；最终仍以项目文件为准。</p>
+        </section>
 
         <section id="drawingSymbolBasics" class="drawing-symbol-basics" aria-labelledby="drawingSymbolTitle">
           <header><div><span>DRAWING SYMBOLS</span><h4 id="drawingSymbolTitle">常见管口、弯头与三通方向符号</h4></div><p>左侧是培训和项目图纸中常见的简化画法，右侧是对应的空间外形。符号细节可能随项目图例变化，方向最终按E/N/EL和本图图例判断。</p></header>
@@ -1356,7 +1379,7 @@
           </div>
         </section>
         <section class="profile-stats" aria-label="学习统计">
-          <div><span>学习路线</span><strong id="profileRouteStat">0 / 16</strong></div>
+          <div><span>30天计划</span><strong id="profileRouteStat">0 / 30</strong></div>
           <div><span>专业课程</span><strong id="profileModuleStat">0 / 20</strong></div>
           <div><span>收藏案例</span><strong id="profileFavoriteStat">0</strong></div>
           <div><span>错题记录</span><strong id="profileWrongStat">0</strong></div>
@@ -1404,6 +1427,7 @@
       <nav id="globalSearchFilters" class="global-search-filters" aria-label="搜索分类">
         <button class="is-active" type="button" data-global-filter="all">全部</button>
         <button type="button" data-global-filter="abbr">缩写</button>
+        <button type="button" data-global-filter="term">术语</button>
         <button type="button" data-global-filter="reference">图鉴</button>
         <button type="button" data-global-filter="calculator">计算</button>
         <button type="button" data-global-filter="size">管径</button>
@@ -1478,16 +1502,18 @@
 
   <script src="vendor/expr-eval.min.js"></script>
   <script src="resource-loader.js?v=1.18.0"></script>
-  <script src="app.js?v=1.18.0"></script>
+  <script src="terminology-data.js?v=1.19.0"></script>
+  <script src="app.js?v=1.20.0"></script>
   <script src="drawing-import.js?v=1.18.2"></script>
-  <script src="exam-tools.js?v=1.18.0"></script>
-  <script src="spatial-training.js?v=1.18.0"></script>
-  <script src="reference-library.js?v=1.18.0"></script>
+  <script src="exam-tools.js?v=1.19.0"></script>
+  <script src="spatial-training.js?v=1.20.0"></script>
+  <script src="reference-library.js?v=1.20.0"></script>
   <script src="field-tools.js?v=1.18.0"></script>
-  <script src="global-search.js?v=1.18.0"></script>
-  <script src="home-dashboard.js?v=1.18.0"></script>
-  <script src="micro-lessons.js?v=1.18.0"></script>
+  <script src="global-search.js?v=1.19.0"></script>
+  <script src="home-dashboard.js?v=1.20.0"></script>
+  <script src="micro-lessons.js?v=1.20.0"></script>
   <script src="learning-coach.js?v=1.18.0"></script>
   <script src="field-workbench.js?v=1.18.0"></script>
+  <script src="daily-plan.js?v=1.20.0"></script>
 </body>
 </html>

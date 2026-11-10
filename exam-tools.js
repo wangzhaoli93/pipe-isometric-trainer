@@ -40,6 +40,17 @@
     ['HOLD', 'Hold', '暂缓施工或待确认点'],
     ['N / S / E / W', 'North / South / East / West', '北、南、东、西方向']
   ];
+  const coreAbbreviationCount = abbreviationData.length;
+
+  const existingAbbreviations = new Set(abbreviationData.flatMap((item) => item[0].split(/\s*\/\s*/).map((code) => code.trim().toUpperCase())));
+  (window.PipeTerminologyData?.items || []).forEach((term) => {
+    const aliases = term.code.split(/\s*\/\s*/).map((code) => code.trim().toUpperCase());
+    const suitable = term.code.length <= 18 && aliases.some((code) => code.length >= 2) && aliases.every((code) => /^[A-Z0-9&.+()\- ]+$/.test(code));
+    if (!suitable || aliases.some((code) => existingAbbreviations.has(code))) return;
+    const note = term.note ? term.note.replace(/[。；]+$/g, '') : '';
+    abbreviationData.push([term.code, term.english, `${term.chinese}${note ? `；${note}` : ''}`]);
+    aliases.forEach((code) => existingAbbreviations.add(code));
+  });
 
   let wireMode = false;
   let quizOrder = [];
@@ -142,7 +153,8 @@
     renderAbbreviationQuestion();
   }
 
-  window.PipeAbbreviationData = abbreviationData.map(([code, english, chinese]) => ({ code, english, chinese }));
+  window.PipeAbbreviationData = abbreviationData.slice(0, coreAbbreviationCount).map(([code, english, chinese]) => ({ code, english, chinese }));
+  window.PipeExamTools = { coreAbbreviationCount, terminologyQuestionCount: abbreviationData.length - coreAbbreviationCount };
 
   document.getElementById('wirePracticeBtn').addEventListener('click', startWirePractice);
   document.querySelectorAll('[data-wire-check]').forEach((checkbox) => checkbox.addEventListener('change', updateWireChecklist));

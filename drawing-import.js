@@ -211,31 +211,39 @@
 
   async function prepareBundledOcrAssets() {
     if (bundledAssetsPromise) return bundledAssetsPromise;
+    const assetStartIndex = ocrAssetObjectUrls.length;
     bundledAssetsPromise = (async () => {
       lastOcrPhase = '读取本地Worker、Core和语言包';
       setStatus('OCR：正在读取本地Worker、Core和语言包 5%', 5);
-      const [workerSource, coreSource, chineseData, englishData] = await Promise.all([
-        readBundledAsset('vendor/tesseract-worker.min.js', 'text'),
-        readBundledAsset('vendor/tesseract-core/tesseract-core-lstm.wasm.js', 'text'),
-        readBundledAsset('vendor/tessdata/chi_sim.traineddata.gz', 'bytes'),
-        readBundledAsset('vendor/tessdata/eng.traineddata.gz', 'bytes')
-      ]);
+      setStatus('OCR：读取Worker脚本 5%', 5);
+      let workerSource = await readBundledAsset('vendor/tesseract-worker.min.js', 'text');
       const initializationNeedle = '"string"==typeof t?t:t.data})).join("+")';
       if (!workerSource.includes(initializationNeedle)) throw new Error('本地OCR Worker版本与内存语言补丁不匹配');
       const patchedWorkerSource = workerSource.replace(initializationNeedle, '"string"==typeof t?t:t.code})).join("+")');
       const workerUrl = URL.createObjectURL(new Blob([patchedWorkerSource], { type: 'application/javascript' }));
+      ocrAssetObjectUrls.push(workerUrl);
+      workerSource = null;
+      setStatus('OCR：读取WASM核心 8%', 8);
+      let coreSource = await readBundledAsset('vendor/tesseract-core/tesseract-core-lstm.wasm.js', 'text');
       const coreObjectUrl = URL.createObjectURL(new Blob([coreSource], { type: 'application/javascript' }));
+      ocrAssetObjectUrls.push(coreObjectUrl);
+      coreSource = null;
       const coreUrl = `${coreObjectUrl}#tesseract-core-lstm.wasm.js`;
-      ocrAssetObjectUrls.push(workerUrl, coreObjectUrl);
+      setStatus('OCR：读取中文模型 12%', 12);
+      const chineseData = await readBundledAsset('vendor/tessdata/chi_sim.traineddata.gz', 'bytes');
+      setStatus('OCR：读取英文模型 16%', 16);
+      const englishData = await readBundledAsset('vendor/tessdata/eng.traineddata.gz', 'bytes');
       return {
         workerUrl,
         coreUrl,
+        objectUrls: [workerUrl, coreObjectUrl],
         languages: [
           { code: 'chi_sim', data: chineseData },
           { code: 'eng', data: englishData }
         ]
       };
     })().catch((error) => {
+      ocrAssetObjectUrls.splice(assetStartIndex).forEach((url) => URL.revokeObjectURL(url));
       bundledAssetsPromise = null;
       throw error;
     });
@@ -251,16 +259,24 @@
   async function createBundledOcrWorker() {
     const assets = await prepareBundledOcrAssets();
     lastOcrPhase = '启动内存OCR Worker';
-    const worker = await window.Tesseract.createWorker(assets.languages, 1, {
-      workerPath: assets.workerUrl,
-      corePath: assets.coreUrl,
-      workerBlobURL: false,
-      cacheMethod: 'none',
-      gzip: true,
-      logger: ocrLogger
-    });
-    bundledAssetsPromise = null;
-    return worker;
+    try {
+      return await window.Tesseract.createWorker(assets.languages, 1, {
+        workerPath: assets.workerUrl,
+        corePath: assets.coreUrl,
+        workerBlobURL: false,
+        cacheMethod: 'none',
+        gzip: true,
+        logger: ocrLogger
+      });
+    } finally {
+      assets.languages.length = 0;
+      assets.objectUrls.forEach((url) => {
+        URL.revokeObjectURL(url);
+        const index = ocrAssetObjectUrls.indexOf(url);
+        if (index >= 0) ocrAssetObjectUrls.splice(index, 1);
+      });
+      bundledAssetsPromise = null;
+    }
   }
 
   async function createOcrWorker(workerBlobURL) {

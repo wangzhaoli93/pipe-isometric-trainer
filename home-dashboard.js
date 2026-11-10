@@ -85,19 +85,19 @@
     try { spatial = JSON.parse(localStorage.getItem(`pipe-spatial-training-v1:${id}`) || '{"completed":{},"wrong":[]}'); } catch (error) { /* defaults */ }
     try { micro = JSON.parse(localStorage.getItem(`pipe-micro-lessons:${id}`) || '[]'); } catch (error) { /* defaults */ }
     try { modules = JSON.parse(localStorage.getItem(`pipe-module-progress:${id}`) || '[]'); } catch (error) { /* defaults */ }
-    try { route = JSON.parse(localStorage.getItem(`pipe-route-progress:${id}`) || '[]'); } catch (error) { /* defaults */ }
+    try { route = JSON.parse(localStorage.getItem(`pipe-daily-plan:${id}`) || '[]'); } catch (error) { /* defaults */ }
     const spatialCount = Object.keys(spatial.completed || {}).length;
     const microCount = Array.isArray(micro) ? micro.length : 0;
     const moduleCount = Array.isArray(modules) ? modules.length : 0;
-    const routeCount = Array.isArray(route) ? route.length : 0;
+    const routeCount = Array.isArray(route) ? new Set(route.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 30)).size : 0;
     get('homeMicroProgress').textContent = `${microCount} / 5`;
     get('homeSpatialProgress').textContent = `${spatialCount} / 36`;
     get('homeModuleProgress').textContent = `${moduleCount} / 20`;
-    get('homeRouteProgress').textContent = `${routeCount} / 16`;
+    get('homeRouteProgress').textContent = `${routeCount} / 30`;
     get('homeMicroBar').style.width = `${microCount / 5 * 100}%`;
     get('homeSpatialBar').style.width = `${spatialCount / 36 * 100}%`;
     get('homeModuleBar').style.width = `${moduleCount / 20 * 100}%`;
-    get('homeRouteBar').style.width = `${routeCount / 16 * 100}%`;
+    get('homeRouteBar').style.width = `${routeCount / 30 * 100}%`;
     get('homeSpatialWrong').textContent = `错题 ${(spatial.wrong || []).length}`;
     renderCoachSummary();
   }
@@ -331,6 +331,7 @@
     get('page-calc').addEventListener('change', scheduleCapture);
     window.addEventListener('pipe-search-used', (event) => saveSearchHistory(event.detail));
     window.addEventListener('pipe-micro-progress', renderLearningProgress);
+    window.addEventListener('pipe-daily-plan-progress', renderLearningProgress);
     window.addEventListener('pipe-coach-ready', renderCoachSummary);
     window.addEventListener('pipe-coach-updated', renderCoachSummary);
     window.addEventListener('pipe-profile-change', () => { loadState(); renderAll(); });

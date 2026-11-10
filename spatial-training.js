@@ -792,6 +792,14 @@
     ensureSpatial3d().then(() => setTimeout(resizeSpatial3d, 60)).catch(console.error);
   }
 
+  function openLevel(level) {
+    activeLevel = Math.max(1, Math.min(6, Number(level) || 1));
+    wrongOnly = false;
+    questionIndex = 0;
+    renderQuestion();
+    openSpatialPage();
+  }
+
   function bindEvents() {
     document.getElementById('openSpatialBtn').addEventListener('click', openSpatialPage);
     document.getElementById('spatialBackBtn').addEventListener('click', () => window.PipeTrainerApp?.back?.());
@@ -871,4 +879,5 @@
 
   bindEvents();
   renderQuestion();
+  window.PipeSpatialTraining = { openLevel, open: openSpatialPage };
 })();
